@@ -16,11 +16,12 @@ class HtmlConverter {
     // Add images
     for (final image in images) {
       buffer.write('<br/>');
-      buffer.write('<img src="${_escapeHtml(image.imageUrl)}" style="max-width: 200px; margin: 8px 0;');
       if (image.linkUrl != null && image.linkUrl!.isNotEmpty) {
-        buffer.write('" data-link="${_escapeHtml(image.linkUrl!)}" />');
-      } else {
-        buffer.write('" />');
+        buffer.write('<a href="${_escapeHtml(image.linkUrl!)}" target="_blank">');
+      }
+      buffer.write('<img src="${_escapeHtml(image.imageUrl)}" style="max-width: 200px; margin: 8px 0; border: none;" alt="image"/>');
+      if (image.linkUrl != null && image.linkUrl!.isNotEmpty) {
+        buffer.write('</a>');
       }
     }
 

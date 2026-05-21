@@ -55,6 +55,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
       _textAlignmentNotifier.value,
     );
     await prefs.setString('saved_data', htmlContent);
+    print("htmlContent===>$htmlContent");
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Data saved as HTML successfully')),
