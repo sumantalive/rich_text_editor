@@ -1,7 +1,7 @@
 name: rich_text_editor
 description: "A customizable rich text editor widget for Flutter with support for text formatting, HTML import/export, images, and undo/redo functionality."
-repository: "https://github.com/your-username/rich_text_editor"
-homepage: "https://github.com/your-username/rich_text_editor"
+repository: "https://github.com/sumantalive/rich_text_editor"
+homepage: "https://github.com/sumantalive/rich_text_editor"
 
 version: 1.0.0
 
