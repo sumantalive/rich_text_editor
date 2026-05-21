@@ -16,7 +16,7 @@ class ImagePreviewDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.black87,
+      backgroundColor: Colors.white,
       insetPadding: const EdgeInsets.all(16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -31,7 +31,7 @@ class ImagePreviewDialog extends StatelessWidget {
                   style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
+                  icon: const Icon(Icons.close, color: Colors.black),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -91,12 +91,10 @@ class ImagePreviewDialog extends StatelessWidget {
                       ],
                     ),
                   ),
-                SizedBox(
-                  width: double.infinity,
-                  child: CustomButton(
-                    label: linkUrl != null && linkUrl!.isNotEmpty ? 'Edit Link' : 'Add Link',
-                    onPressed: onAddLinkPressed ?? () {},
-                  ),
+                CustomButton(
+                  icon:linkUrl != null && linkUrl!.isNotEmpty ? Icons.edit: Icons.add ,
+                  label: linkUrl != null && linkUrl!.isNotEmpty ? 'Edit Link' : 'Add Link',
+                  onPressed: onAddLinkPressed ?? () {},
                 ),
               ],
             ),

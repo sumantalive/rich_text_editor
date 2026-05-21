@@ -264,19 +264,28 @@ class _ComposeScreenState extends State<ComposeScreen> {
                     return Expanded(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
-                        child: TextField(
-                          controller: _bodyController,
-                          focusNode: _bodyFocusNode,
-                          maxLines: null,
-                          textAlign: _getTextAlign(alignment),
-                          decoration: InputDecoration(
-                            hintText: 'Start typing...',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Enter Your Message',style: TextStyle(fontSize: 18,fontWeight: FontWeight.w500,letterSpacing: 0.8)),
+                            SizedBox(height: 4),
+                            TextField(
+                              controller: _bodyController,
+                              focusNode: _bodyFocusNode,
+                              maxLines: null,
+                              textAlign: _getTextAlign(alignment),
+                              decoration: InputDecoration(
+                                hintText: 'Write message...',
+                                border: OutlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.black),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                contentPadding: const EdgeInsets.all(12),
+                              ),
+                              textAlignVertical: TextAlignVertical.top,
                             ),
-                            contentPadding: const EdgeInsets.all(12),
-                          ),
-                          textAlignVertical: TextAlignVertical.top,
+                          ],
                         ),
                       ),
                     );
