@@ -12,9 +12,19 @@ import '../widgets/image_preview_dialog.dart';
 import '../widgets/image_link_dialog.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/html_import_dialog.dart';
+import '../config/editor_config.dart';
 
 class ComposeScreen extends StatefulWidget {
-  const ComposeScreen({super.key});
+  final RichTextEditorConfig config;
+  final VoidCallback? onSave;
+  final VoidCallback? onLoad;
+
+  const ComposeScreen({
+    super.key,
+    this.config = const RichTextEditorConfig(),
+    this.onSave,
+    this.onLoad,
+  });
 
   @override
   State<ComposeScreen> createState() => _ComposeScreenState();
@@ -56,8 +66,8 @@ class _ComposeScreenState extends State<ComposeScreen> {
       _bodyController.extractImageData(),
       _textAlignmentNotifier.value,
     );
-    await prefs.setString('saved_data', htmlContent);
-    print("htmlContent===>$htmlContent");
+    await prefs.setString(widget.config.storageKey, htmlContent);
+    widget.onSave?.call();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Data saved as HTML successfully')),
@@ -67,7 +77,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedData = prefs.getString('saved_data');
+    final savedData = prefs.getString(widget.config.storageKey);
 
     if (savedData == null) {
       if (mounted) {
@@ -106,6 +116,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
       _isRestoringState = false;
       _undoRedoService.clear();
       _updateUndoRedoButtons();
+      widget.onLoad?.call();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Data loaded successfully')),
@@ -268,63 +279,67 @@ class _ComposeScreenState extends State<ComposeScreen> {
   }
 
   void _copyToClipboard(String text) {
-    if (mounted) {
-      Clipboard.setData(ClipboardData(text: "Your text here")).then((_) {
+    Clipboard.setData(ClipboardData(text: text)).then((_) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('HTML copied to clipboard')),
         );
-      });
-    }
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Text Editor'),
-        backgroundColor: Colors.blue,
+        title: Text(widget.config.title),
+        backgroundColor: widget.config.appBarColor,
         elevation: 0,
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: Center(
-              child: CustomButton(
-                label: 'Export HTML',
-                icon: Icons.download,
-                onPressed: _showHtmlExport,
+          if (widget.config.enableExport)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Center(
+                child: CustomButton(
+                  label: 'Export HTML',
+                  icon: Icons.download,
+                  onPressed: _showHtmlExport,
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: Center(
-              child: CustomButton(
-                label: 'Import HTML',
-                icon: Icons.publish,
-                onPressed: _showHtmlImportDialog,
+          if (widget.config.enableHtmlImport)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Center(
+                child: CustomButton(
+                  label: 'Import HTML',
+                  icon: Icons.publish,
+                  onPressed: _showHtmlImportDialog,
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: Center(
-              child: CustomButton(
-                label: 'Load',
-                icon: Icons.upload,
-                onPressed: _loadData,
+          if (widget.config.enableLoad)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Center(
+                child: CustomButton(
+                  label: 'Load',
+                  icon: Icons.upload,
+                  onPressed: _loadData,
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Center(
-              child: CustomButton(
-                label: 'Save',
-                icon: Icons.save,
-                onPressed: _saveData,
+          if (widget.config.enableSave)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Center(
+                child: CustomButton(
+                  label: 'Save',
+                  icon: Icons.save,
+                  onPressed: _saveData,
+                ),
               ),
             ),
-          ),
         ],
       ),
       body: Column(
