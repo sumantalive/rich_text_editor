@@ -541,6 +541,8 @@ class RichTextController extends TextEditingController {
     }
   }
 
+  TextFormatting get activeFormatting => _activeFormatting;
+
   void setActiveFormatting(TextFormatting formatting) {
     _activeFormatting = formatting;
   }

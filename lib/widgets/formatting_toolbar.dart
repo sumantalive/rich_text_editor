@@ -148,23 +148,46 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
   }
 
   void _applyColor(int color, bool isBackground) {
+    final selection = widget.controller.selection;
     final formatting = isBackground
         ? TextFormatting(highlightColor: color)
         : TextFormatting(textColor: color);
 
-    widget.controller.applyPropertyToSelection(formatting);
+    if (selection.start < selection.end) {
+      widget.controller.applyPropertyToSelection(formatting);
+    } else {
+      final newFormatting = isBackground
+          ? widget.controller.activeFormatting.copyWith(highlightColor: color)
+          : widget.controller.activeFormatting.copyWith(textColor: color);
+      widget.controller.setActiveFormatting(newFormatting);
+      _currentFormattingNotifier.value = newFormatting;
+    }
     _updateFormattingFromCursor();
   }
 
   void _changeFontSize(double size) {
-    final formatting = TextFormatting(fontSize: size);
-    widget.controller.applyPropertyToSelection(formatting);
+    final selection = widget.controller.selection;
+    if (selection.start < selection.end) {
+      final formatting = TextFormatting(fontSize: size);
+      widget.controller.applyPropertyToSelection(formatting);
+    } else {
+      final newFormatting = widget.controller.activeFormatting.copyWith(fontSize: size);
+      widget.controller.setActiveFormatting(newFormatting);
+      _currentFormattingNotifier.value = newFormatting;
+    }
     _updateFormattingFromCursor();
   }
 
   void _changeFontFamily(String family) {
-    final formatting = TextFormatting(fontFamily: family);
-    widget.controller.applyPropertyToSelection(formatting);
+    final selection = widget.controller.selection;
+    if (selection.start < selection.end) {
+      final formatting = TextFormatting(fontFamily: family);
+      widget.controller.applyPropertyToSelection(formatting);
+    } else {
+      final newFormatting = widget.controller.activeFormatting.copyWith(fontFamily: family);
+      widget.controller.setActiveFormatting(newFormatting);
+      _currentFormattingNotifier.value = newFormatting;
+    }
     _updateFormattingFromCursor();
   }
 
@@ -181,22 +204,46 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
   }
 
   void _toggleBold() {
-    widget.controller.togglePropertyInSelection('bold');
+    final selection = widget.controller.selection;
+    if (selection.start < selection.end) {
+      widget.controller.togglePropertyInSelection('bold');
+    } else {
+      widget.controller.toggleActiveFormatting('bold');
+      _currentFormattingNotifier.value = widget.controller.activeFormatting;
+    }
     _updateFormattingFromCursor();
   }
 
   void _toggleItalic() {
-    widget.controller.togglePropertyInSelection('italic');
+    final selection = widget.controller.selection;
+    if (selection.start < selection.end) {
+      widget.controller.togglePropertyInSelection('italic');
+    } else {
+      widget.controller.toggleActiveFormatting('italic');
+      _currentFormattingNotifier.value = widget.controller.activeFormatting;
+    }
     _updateFormattingFromCursor();
   }
 
   void _toggleUnderline() {
-    widget.controller.togglePropertyInSelection('underline');
+    final selection = widget.controller.selection;
+    if (selection.start < selection.end) {
+      widget.controller.togglePropertyInSelection('underline');
+    } else {
+      widget.controller.toggleActiveFormatting('underline');
+      _currentFormattingNotifier.value = widget.controller.activeFormatting;
+    }
     _updateFormattingFromCursor();
   }
 
   void _toggleStrikethrough() {
-    widget.controller.togglePropertyInSelection('strikethrough');
+    final selection = widget.controller.selection;
+    if (selection.start < selection.end) {
+      widget.controller.togglePropertyInSelection('strikethrough');
+    } else {
+      widget.controller.toggleActiveFormatting('strikethrough');
+      _currentFormattingNotifier.value = widget.controller.activeFormatting;
+    }
     _updateFormattingFromCursor();
   }
 
