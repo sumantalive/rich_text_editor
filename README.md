@@ -56,6 +56,40 @@ flutter pub get
 
 ## Quick Start
 
+### Option 1: Full-Featured Compose Screen (Recommended)
+For a complete editor experience with toolbar, formatting options, and dialogs:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:rich_text_editor/rich_text_editor.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        body: ComposeScreen(
+          config: RichTextEditorConfig(
+            title: 'New Note',
+            enableImageUpload: true,
+            enableExport: true,
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+### Option 2: Embedded Editor Widget
+For embedding the editor inside your existing UI:
+
 ```dart
 import 'package:flutter/material.dart';
 import 'package:rich_text_editor/rich_text_editor.dart';
@@ -81,6 +115,16 @@ class MyApp extends StatelessWidget {
   }
 }
 ```
+
+### Important: Import Statement
+Always use this import statement in your files:
+```dart
+import 'package:rich_text_editor/rich_text_editor.dart';
+```
+
+This gives you access to all public classes including `ComposeScreen`, `RichTextEditor`, and `RichTextEditorConfig`.
+
+**For more detailed usage examples, see [USAGE_GUIDE.md](USAGE_GUIDE.md)**
 
 ## Customization
 

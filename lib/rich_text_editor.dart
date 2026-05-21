@@ -12,7 +12,8 @@ export 'src/models/image_model.dart';
 export 'src/services/html_converter.dart';
 export 'src/services/undo_redo_service.dart';
 
-// Main Widget
+// Main Widgets
+export 'src/widgets/compose_screen.dart';
 export 'src/widgets/rich_text_editor.dart';
 export 'src/widgets/custom_button.dart';
 export 'src/widgets/custom_dropdown.dart';
