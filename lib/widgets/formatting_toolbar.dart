@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../controllers/rich_text_controller.dart';
 import 'color_palette.dart';
 import 'custom_dropdown.dart';
+import 'image_url_dialog.dart';
 
 class FormattingToolbar extends StatefulWidget {
   final RichTextController controller;
@@ -13,6 +14,7 @@ class FormattingToolbar extends StatefulWidget {
   final VoidCallback? onRedo;
   final bool canUndo;
   final bool canRedo;
+  final ValueChanged<String>? onImageAdded;
 
   const FormattingToolbar({
     super.key,
@@ -25,6 +27,7 @@ class FormattingToolbar extends StatefulWidget {
     this.onRedo,
     this.canUndo = false,
     this.canRedo = false,
+    this.onImageAdded,
   });
 
   @override
@@ -163,6 +166,18 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
     final formatting = TextFormatting(fontFamily: family);
     widget.controller.applyPropertyToSelection(formatting);
     _updateFormattingFromCursor();
+  }
+
+  void _showImageUrlDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => ImageUrlDialog(
+        onImageUrlAdded: (url) {
+          Navigator.pop(context);
+          widget.onImageAdded?.call(url);
+        },
+      ),
+    );
   }
 
   void _toggleBold() {
@@ -340,6 +355,13 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
                       isActive: currentAlignment == 'justify',
                       onPressed: () => _changeAlignment('justify'),
                     ),
+                    const SizedBox(width: 8),
+                    if (widget.onImageAdded != null)
+                      _FormatButton(
+                        icon: Icons.image,
+                        isActive: false,
+                        onPressed: _showImageUrlDialog,
+                      ),
                     const SizedBox(width: 8),
                     if (widget.onUndo != null)
                       _UndoRedoButton(

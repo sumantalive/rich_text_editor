@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/email_model.dart';
+import '../models/image_model.dart';
 
 class TextFormatting {
   bool bold;
@@ -116,6 +117,7 @@ class TextFormatting {
 
 class RichTextController extends TextEditingController {
   List<SpanData> spans = [];
+  List<ImageData> images = [];
   TextFormatting _activeFormatting = TextFormatting();
 
   TextEditingValue _lastValue = TextEditingValue.empty;
@@ -617,6 +619,36 @@ class RichTextController extends TextEditingController {
 
 
   List<SpanData> extractSpanData() => spans;
+
+  List<ImageData> extractImageData() => images;
+
+  void addImage(String imageUrl) {
+    final imageData = ImageData(imageUrl: imageUrl);
+    images.add(imageData);
+    notifyListeners();
+  }
+
+  void removeImage(String imageId) {
+    images.removeWhere((img) => img.id == imageId);
+    notifyListeners();
+  }
+
+  void reorderImages(int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) {
+      newIndex -= 1;
+    }
+    final image = images.removeAt(oldIndex);
+    images.insert(newIndex, image);
+    notifyListeners();
+  }
+
+  void updateImageLink(String imageId, String? linkUrl) {
+    final index = images.indexWhere((img) => img.id == imageId);
+    if (index != -1) {
+      images[index] = images[index].copyWith(linkUrl: linkUrl);
+      notifyListeners();
+    }
+  }
 
   void clearFormatting() {
     spans.clear();

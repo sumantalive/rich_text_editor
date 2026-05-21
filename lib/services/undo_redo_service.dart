@@ -1,25 +1,30 @@
 import '../models/email_model.dart';
+import '../models/image_model.dart';
 
 class EditorState {
   final String text;
   final List<SpanData> spans;
   final String alignment;
+  final List<ImageData> images;
 
   EditorState({
     required this.text,
     required this.spans,
     required this.alignment,
+    this.images = const [],
   });
 
   EditorState copyWith({
     String? text,
     List<SpanData>? spans,
     String? alignment,
+    List<ImageData>? images,
   }) {
     return EditorState(
       text: text ?? this.text,
       spans: spans ?? this.spans,
       alignment: alignment ?? this.alignment,
+      images: images ?? this.images,
     );
   }
 }
