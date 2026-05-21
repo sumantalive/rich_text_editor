@@ -64,7 +64,7 @@ class HtmlConverter {
     var html = _escapeHtml(text);
 
     if (span.linkUrl != null && span.linkUrl!.isNotEmpty) {
-      html = '<a href="${_escapeHtml(span.linkUrl!)}" style="color: #0A7EFF; text-decoration: underline;">$html</a>';
+      html = '<a href="${_escapeHtml(span.linkUrl!)}" style="color: #0A7EFF; text-decoration: underline; text-decoration-color: #0A7EFF;">$html</a>';
     }
 
     if (span.bold) html = '<strong>$html</strong>';
@@ -75,11 +75,12 @@ class HtmlConverter {
     final fontSize = span.fontSize != 14.0 ? 'font-size: ${span.fontSize}px;' : '';
     final textColor = span.textColor != 0xFF000000 ? 'color: ${_colorToHex(span.textColor)};' : '';
     final bgColor = span.highlightColor != null ? 'background-color: ${_colorToHex(span.highlightColor!)};' : '';
+    final decorationColor = (span.underline || span.strikethrough) ? 'text-decoration-color: ${_colorToHex(span.textColor)};' : '';
 
     final fontFamily = _getFontFamilyName(span.fontFamily);
     final fontFamilyStyle = fontFamily != null ? 'font-family: $fontFamily;' : '';
 
-    final styles = [fontSize, textColor, bgColor, fontFamilyStyle].where((s) => s.isNotEmpty).join(' ');
+    final styles = [fontSize, textColor, bgColor, fontFamilyStyle, decorationColor].where((s) => s.isNotEmpty).join(' ');
 
     if (styles.isNotEmpty) {
       html = '<span style="$styles">$html</span>';

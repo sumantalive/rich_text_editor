@@ -93,6 +93,7 @@ class TextFormatting {
   }
 
   TextStyle toTextStyle() {
+    final textColorValue = Color(textColor);
     return TextStyle(
       fontWeight: bold ? FontWeight.bold : FontWeight.normal,
       fontStyle: italic ? FontStyle.italic : FontStyle.normal,
@@ -100,7 +101,8 @@ class TextFormatting {
         if (underline) TextDecoration.underline,
         if (strikethrough) TextDecoration.lineThrough,
       ]),
-      color: Color(textColor),
+      decorationColor: textColorValue,
+      color: textColorValue,
       backgroundColor: highlightColor != null ? Color(highlightColor!) : null,
       fontSize: fontSize,
       fontFamily: _getFontFamily(),
@@ -741,6 +743,7 @@ extension on SpanData {
   }
 
   TextStyle toTextStyle() {
+    final textColorValue = linkUrl != null ? Colors.blue : Color(textColor);
     return TextStyle(
       fontWeight: bold ? FontWeight.bold : FontWeight.normal,
       fontStyle: italic ? FontStyle.italic : FontStyle.normal,
@@ -748,7 +751,8 @@ extension on SpanData {
         if (underline || linkUrl != null) TextDecoration.underline,
         if (strikethrough) TextDecoration.lineThrough,
       ]),
-      color: linkUrl != null ? Colors.blue : Color(textColor),
+      decorationColor: textColorValue,
+      color: textColorValue,
       backgroundColor: highlightColor != null ? Color(highlightColor!) : null,
       fontSize: fontSize,
       fontFamily: _getFontFamily(),

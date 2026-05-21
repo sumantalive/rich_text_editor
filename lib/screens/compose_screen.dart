@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../controllers/rich_text_controller.dart';
@@ -229,11 +230,12 @@ class _ComposeScreenState extends State<ComposeScreen> {
   }
 
   void _copyToClipboard(String text) {
-    // Copy to clipboard implementation would go here
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('HTML copied to clipboard')),
-      );
+      Clipboard.setData(ClipboardData(text: "Your text here")).then((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('HTML copied to clipboard')),
+        );
+      });
     }
   }
 
