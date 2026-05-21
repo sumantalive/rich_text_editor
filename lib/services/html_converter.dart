@@ -1,5 +1,7 @@
 import '../models/span_data_model.dart';
 import '../models/image_model.dart';
+import 'package:html/parser.dart' as html_parser;
+import 'package:html/dom.dart' as html_dom;
 
 class HtmlConverter {
   static String toHtml(String text, List<SpanData> spans, List<ImageData> images, String alignment) {
@@ -146,4 +148,272 @@ class HtmlConverter {
     html = html.replaceAll(RegExp(r'<[^>]*>', caseSensitive: false), '');
     return _unescapeHtml(html).trim();
   }
+
+  static HtmlImportData parseHtmlFull(String htmlContent) {
+    final doc = html_parser.parse(htmlContent);
+    final text = StringBuffer();
+    final spans = <SpanData>[];
+    final images = <ImageData>[];
+    var alignment = 'left';
+
+    if (doc.body == null) {
+      return HtmlImportData(text: '', spans: [], images: [], alignment: 'left');
+    }
+
+    final divElements = doc.body!.querySelectorAll('div');
+    if (divElements.isNotEmpty) {
+      final firstDiv = divElements.first;
+      final style = firstDiv.attributes['style'] ?? '';
+      if (style.contains('text-align:')) {
+        final alignMatch = RegExp(r'text-align:\s*(\w+)').firstMatch(style);
+        if (alignMatch != null) {
+          alignment = alignMatch.group(1) ?? 'left';
+        }
+      }
+    }
+
+    _parseNode(doc.body!, text, spans, images, 0);
+
+    final finalText = text.toString().trim();
+    _adjustSpanOffsets(spans, finalText);
+
+    return HtmlImportData(
+      text: finalText,
+      spans: spans,
+      images: images,
+      alignment: alignment,
+    );
+  }
+
+  static void _parseNode(
+    html_dom.Node node,
+    StringBuffer text,
+    List<SpanData> spans,
+    List<ImageData> images,
+    int depth,
+  ) {
+    if (node is html_dom.Text) {
+      final nodeText = node.text;
+      if (nodeText.isNotEmpty) {
+        text.write(_unescapeHtml(nodeText));
+      }
+    } else if (node is html_dom.Element) {
+      final tag = node.localName;
+      final startOffset = text.length;
+
+      if (tag == 'img') {
+        final src = node.attributes['src'] ?? '';
+        final linkUrl = node.parent?.localName == 'a'
+            ? (node.parent as html_dom.Element).attributes['href'] ?? ''
+            : '';
+        if (src.isNotEmpty) {
+          images.add(ImageData(
+            id: _generateId(),
+            imageUrl: src,
+            linkUrl: linkUrl.isNotEmpty ? linkUrl : null,
+          ));
+        }
+      } else if (tag == 'br') {
+        text.write('\n');
+      } else if (tag != 'a' || node.parent?.localName != 'a') {
+        for (final child in node.nodes) {
+          _parseNode(child, text, spans, images, depth + 1);
+        }
+      } else {
+        for (final child in node.nodes) {
+          _parseNode(child, text, spans, images, depth + 1);
+        }
+      }
+
+      if (tag == 'p' || tag == 'div') {
+        if (text.isNotEmpty && !text.toString().endsWith('\n')) {
+          text.write('\n');
+        }
+      }
+
+      final endOffset = text.length;
+
+      if ((tag == 'strong' || tag == 'b') && startOffset < endOffset) {
+        _addSpanModifier(spans, startOffset, endOffset, (span) {
+          return span.copyWith(bold: true);
+        });
+      }
+
+      if ((tag == 'em' || tag == 'i') && startOffset < endOffset) {
+        _addSpanModifier(spans, startOffset, endOffset, (span) {
+          return span.copyWith(italic: true);
+        });
+      }
+
+      if (tag == 'u' && startOffset < endOffset) {
+        _addSpanModifier(spans, startOffset, endOffset, (span) {
+          return span.copyWith(underline: true);
+        });
+      }
+
+      if (tag == 's' && startOffset < endOffset) {
+        _addSpanModifier(spans, startOffset, endOffset, (span) {
+          return span.copyWith(strikethrough: true);
+        });
+      }
+
+      if (tag == 'a' && startOffset < endOffset) {
+        final href = node.attributes['href'] ?? '';
+        if (href.isNotEmpty) {
+          _addSpanModifier(spans, startOffset, endOffset, (span) {
+            return span.copyWith(linkUrl: href);
+          });
+        }
+      }
+
+      if ((tag == 'span' || tag == 'strong' || tag == 'em' || tag == 'u' || tag == 's') && startOffset < endOffset) {
+        final style = node.attributes['style'] ?? '';
+        _applyStyleToSpan(spans, startOffset, endOffset, style);
+      }
+    } else {
+      for (final child in node.nodes) {
+        _parseNode(child, text, spans, images, depth + 1);
+      }
+    }
+  }
+
+  static void _applyStyleToSpan(List<SpanData> spans, int start, int end, String style) {
+    if (style.isEmpty) return;
+
+    final fontSize = _extractValue(style, 'font-size', r'(\d+(?:\.\d+)?)', 14.0);
+    final color = _extractColor(style, 'color');
+    final bgColor = _extractColor(style, 'background-color');
+    final fontFamily = _extractFontFamily(style);
+
+    _addSpanModifier(spans, start, end, (span) {
+      var modified = span;
+      if (fontSize != 14.0) modified = modified.copyWith(fontSize: fontSize);
+      if (color != 0xFF000000) modified = modified.copyWith(textColor: color);
+      if (bgColor != null) modified = modified.copyWith(highlightColor: bgColor);
+      if (fontFamily.isNotEmpty) modified = modified.copyWith(fontFamily: fontFamily);
+      return modified;
+    });
+  }
+
+  static double _extractValue(String style, String property, String pattern, double defaultValue) {
+    final regex = RegExp('$property\\s*:\\s*$pattern');
+    final match = regex.firstMatch(style);
+    if (match != null) {
+      return double.tryParse(match.group(1) ?? '') ?? defaultValue;
+    }
+    return defaultValue;
+  }
+
+  static int? _extractColor(String style, String property) {
+    final regex = RegExp('(?<![\\w-])$property\\s*:\\s*([#\\w()]+)');
+    final match = regex.firstMatch(style);
+    if (match != null) {
+      final colorStr = match.group(1) ?? '';
+      return _parseColor(colorStr);
+    }
+    return null;
+  }
+
+  static int? _parseColor(String colorStr) {
+    if (colorStr.startsWith('#')) {
+      try {
+        final hex = colorStr.substring(1);
+        if (hex.length == 6) {
+          return int.parse('FF$hex', radix: 16);
+        } else if (hex.length == 8) {
+          return int.parse(hex, radix: 16);
+        }
+      } catch (e) {
+        return null;
+      }
+    } else if (colorStr.startsWith('rgb')) {
+      final matches = RegExp(r'(\d+)').allMatches(colorStr);
+      if (matches.length >= 3) {
+        final r = int.parse(matches.elementAt(0).group(1)!);
+        final g = int.parse(matches.elementAt(1).group(1)!);
+        final b = int.parse(matches.elementAt(2).group(1)!);
+        final a = matches.length > 3 ? (int.parse(matches.elementAt(3).group(1)!) * 255).toInt() : 255;
+        return ((a & 0xff) << 24) | ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
+      }
+    }
+    return null;
+  }
+
+  static String _extractFontFamily(String style) {
+    final regex = RegExp(r'font-family:\s*([^;]+)');
+    final match = regex.firstMatch(style);
+    if (match != null) {
+      var family = match.group(1)?.trim() ?? '';
+      family = family.replaceAll('"', '').replaceAll("'", '');
+      return _normalizeFontFamily(family);
+    }
+    return 'default';
+  }
+
+  static String _normalizeFontFamily(String family) {
+    final lower = family.toLowerCase();
+    if (lower.contains('sans-serif')) return 'sans-serif';
+    if (lower.contains('serif')) return 'serif';
+    if (lower.contains('monospace')) return 'monospace';
+    if (lower.contains('comic')) return 'comic-sans-ms';
+    if (lower.contains('garamond')) return 'garamond';
+    if (lower.contains('georgia')) return 'georgia';
+    if (lower.contains('tahoma')) return 'tahoma';
+    if (lower.contains('trebuchet')) return 'trebuchet-ms';
+    if (lower.contains('verdana')) return 'verdana';
+    return 'default';
+  }
+
+  static void _addSpanModifier(
+    List<SpanData> spans,
+    int start,
+    int end,
+    SpanData Function(SpanData) modifier,
+  ) {
+    if (start >= end) return;
+
+    final baseSpan = SpanData(
+      start: start,
+      end: end,
+      bold: false,
+      italic: false,
+      underline: false,
+      strikethrough: false,
+      fontSize: 14.0,
+      textColor: 0xFF000000,
+      fontFamily: 'default',
+    );
+
+    final modifiedSpan = modifier(baseSpan);
+
+    final existingIndex = spans.indexWhere((s) => s.start == start && s.end == end);
+    if (existingIndex >= 0) {
+      spans[existingIndex] = modifier(spans[existingIndex]);
+    } else {
+      spans.add(modifiedSpan);
+    }
+  }
+
+  static void _adjustSpanOffsets(List<SpanData> spans, String finalText) {
+    // Cleanup and validate spans
+    spans.removeWhere((span) => span.start >= span.end || span.end > finalText.length);
+  }
+
+  static String _generateId() {
+    return DateTime.now().millisecondsSinceEpoch.toString() + (DateTime.now().microsecond % 1000).toString();
+  }
+}
+
+class HtmlImportData {
+  final String text;
+  final List<SpanData> spans;
+  final List<ImageData> images;
+  final String alignment;
+
+  HtmlImportData({
+    required this.text,
+    required this.spans,
+    required this.images,
+    required this.alignment,
+  });
 }

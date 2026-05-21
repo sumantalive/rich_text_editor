@@ -94,6 +94,11 @@ class TextFormatting {
 
   TextStyle toTextStyle() {
     final textColorValue = Color(textColor);
+    Color? bgColor;
+    if (highlightColor != null) {
+      final color = Color(highlightColor!);
+      bgColor = color.withValues(alpha: 0.4);
+    }
     return TextStyle(
       fontWeight: bold ? FontWeight.bold : FontWeight.normal,
       fontStyle: italic ? FontStyle.italic : FontStyle.normal,
@@ -103,7 +108,7 @@ class TextFormatting {
       ]),
       decorationColor: textColorValue,
       color: textColorValue,
-      backgroundColor: highlightColor != null ? Color(highlightColor!) : null,
+      backgroundColor: bgColor,
       fontSize: fontSize,
       fontFamily: _getFontFamily(),
       letterSpacing: _getLetterSpacing(),
@@ -744,6 +749,11 @@ extension on SpanData {
 
   TextStyle toTextStyle() {
     final textColorValue = linkUrl != null ? Colors.blue : Color(textColor);
+    Color? bgColor;
+    if (highlightColor != null) {
+      final color = Color(highlightColor!);
+      bgColor = color;
+    }
     return TextStyle(
       fontWeight: bold ? FontWeight.bold : FontWeight.normal,
       fontStyle: italic ? FontStyle.italic : FontStyle.normal,
@@ -753,7 +763,7 @@ extension on SpanData {
       ]),
       decorationColor: textColorValue,
       color: textColorValue,
-      backgroundColor: highlightColor != null ? Color(highlightColor!) : null,
+      backgroundColor: bgColor,
       fontSize: fontSize,
       fontFamily: _getFontFamily(),
       letterSpacing: _getLetterSpacing(),

@@ -11,6 +11,7 @@ import '../widgets/formatting_toolbar.dart';
 import '../widgets/image_preview_dialog.dart';
 import '../widgets/image_link_dialog.dart';
 import '../widgets/custom_button.dart';
+import '../widgets/html_import_dialog.dart';
 
 class ComposeScreen extends StatefulWidget {
   const ComposeScreen({super.key});
@@ -117,6 +118,43 @@ class _ComposeScreenState extends State<ComposeScreen> {
         );
       }
     }
+  }
+
+  Future<void> _importHtmlData(String htmlContent) async {
+    try {
+      _isRestoringState = true;
+
+      final importData = HtmlConverter.parseHtmlFull(htmlContent);
+      _bodyController.text = importData.text;
+      _bodyController.spans = importData.spans;
+      _bodyController.images = importData.images;
+      _imagesNotifier.value = List.from(importData.images);
+      _textAlignmentNotifier.value = importData.alignment;
+
+      _isRestoringState = false;
+      _undoRedoService.clear();
+      _updateUndoRedoButtons();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('HTML imported successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error importing HTML: $e')),
+        );
+      }
+    }
+  }
+
+  void _showHtmlImportDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => HtmlImportDialog(
+        onImport: _importHtmlData,
+      ),
+    );
   }
 
   void _saveState() {
@@ -254,6 +292,16 @@ class _ComposeScreenState extends State<ComposeScreen> {
                 label: 'Export HTML',
                 icon: Icons.download,
                 onPressed: _showHtmlExport,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Center(
+              child: CustomButton(
+                label: 'Import HTML',
+                icon: Icons.publish,
+                onPressed: _showHtmlImportDialog,
               ),
             ),
           ),
