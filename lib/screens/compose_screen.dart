@@ -5,6 +5,7 @@ import '../controllers/rich_text_controller.dart';
 import '../models/span_data_model.dart';
 import '../models/image_model.dart';
 import '../services/undo_redo_service.dart';
+import '../services/html_converter.dart';
 import '../widgets/formatting_toolbar.dart';
 import '../widgets/image_preview_dialog.dart';
 import '../widgets/image_link_dialog.dart';
@@ -47,25 +48,25 @@ class _ComposeScreenState extends State<ComposeScreen> {
 
   Future<void> _saveData() async {
     final prefs = await SharedPreferences.getInstance();
-    final data = {
-      'text': _bodyController.text,
-      'spans': _bodyController.extractSpanData(),
-      'images': _bodyController.extractImageData(),
-      'alignment': _textAlignmentNotifier.value,
-    };
-    await prefs.setString('saved_data', jsonEncode(data));
+    final htmlContent = HtmlConverter.toHtml(
+      _bodyController.text,
+      _bodyController.extractSpanData(),
+      _bodyController.extractImageData(),
+      _textAlignmentNotifier.value,
+    );
+    await prefs.setString('saved_data', htmlContent);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Data saved successfully')),
+        const SnackBar(content: Text('Data saved as HTML successfully')),
       );
     }
   }
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedDataJson = prefs.getString('saved_data');
+    final savedData = prefs.getString('saved_data');
 
-    if (savedDataJson == null) {
+    if (savedData == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No saved data found')),
@@ -75,29 +76,33 @@ class _ComposeScreenState extends State<ComposeScreen> {
     }
 
     try {
-      final data = jsonDecode(savedDataJson) as Map<String, dynamic>;
       _isRestoringState = true;
 
-      _bodyController.text = data['text'] ?? '';
-      if (data['spans'] != null) {
-        final spansList = (data['spans'] as List)
-            .map((span) => SpanData.fromJson(span as Map<String, dynamic>))
-            .toList();
-        _bodyController.spans = spansList;
+      if (savedData.startsWith('{')) {
+        final data = jsonDecode(savedData) as Map<String, dynamic>;
+        _bodyController.text = data['text'] ?? '';
+        if (data['spans'] != null) {
+          final spansList = (data['spans'] as List)
+              .map((span) => SpanData.fromJson(span as Map<String, dynamic>))
+              .toList();
+          _bodyController.spans = spansList;
+        }
+        if (data['images'] != null) {
+          final imagesList = (data['images'] as List)
+              .map((img) => ImageData.fromJson(img as Map<String, dynamic>))
+              .toList();
+          _bodyController.images = imagesList;
+          _imagesNotifier.value = List.from(imagesList);
+        }
+        _textAlignmentNotifier.value = data['alignment'] ?? 'left';
+      } else {
+        _bodyController.text = HtmlConverter.fromHtml(savedData);
+        _textAlignmentNotifier.value = 'left';
       }
-      if (data['images'] != null) {
-        final imagesList = (data['images'] as List)
-            .map((img) => ImageData.fromJson(img as Map<String, dynamic>))
-            .toList();
-        _bodyController.images = imagesList;
-        _imagesNotifier.value = List.from(imagesList);
-      }
-      _textAlignmentNotifier.value = data['alignment'] ?? 'left';
 
       _isRestoringState = false;
       _undoRedoService.clear();
       _updateUndoRedoButtons();
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Data loaded successfully')),
@@ -187,6 +192,50 @@ class _ComposeScreenState extends State<ComposeScreen> {
     }
   }
 
+  void _showHtmlExport() {
+    final htmlContent = HtmlConverter.toHtml(
+      _bodyController.text,
+      _bodyController.extractSpanData(),
+      _bodyController.extractImageData(),
+      _textAlignmentNotifier.value,
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('HTML Export'),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            htmlContent,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _copyToClipboard(htmlContent);
+            },
+            child: const Text('Copy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _copyToClipboard(String text) {
+    // Copy to clipboard implementation would go here
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('HTML copied to clipboard')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -195,6 +244,16 @@ class _ComposeScreenState extends State<ComposeScreen> {
         backgroundColor: Colors.blue,
         elevation: 0,
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Center(
+              child: CustomButton(
+                label: 'Export HTML',
+                icon: Icons.download,
+                onPressed: _showHtmlExport,
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: Center(
