@@ -1,4 +1,4 @@
-import '../models/email_model.dart';
+import '../models/span_data_model.dart';
 import '../models/image_model.dart';
 
 class EditorState {

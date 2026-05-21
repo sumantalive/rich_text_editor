@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import '../models/email_model.dart';
+import '../models/span_data_model.dart';
 import '../models/image_model.dart';
 
 class TextFormatting {

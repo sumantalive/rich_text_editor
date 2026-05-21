@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../controllers/rich_text_controller.dart';
-import '../models/email_model.dart';
+import '../models/span_data_model.dart';
 import '../models/image_model.dart';
 import '../services/undo_redo_service.dart';
 import '../widgets/formatting_toolbar.dart';
