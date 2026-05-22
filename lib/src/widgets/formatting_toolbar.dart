@@ -14,7 +14,7 @@ class FormattingToolbar extends StatefulWidget {
   final VoidCallback? onRedo;
   final bool canUndo;
   final bool canRedo;
-  final ValueChanged<String>? onImageAdded;
+  final void Function()? onImageAdded;
 
   const FormattingToolbar({
     super.key,
@@ -191,17 +191,7 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
     }
   }
 
-  void _showImageUrlDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => ImageUrlDialog(
-        onImageUrlAdded: (url) {
-          Navigator.pop(context);
-          widget.onImageAdded?.call(url);
-        },
-      ),
-    );
-  }
+
 
   void _toggleBold() {
     final selection = widget.controller.selection;
@@ -407,7 +397,7 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
                       _FormatButton(
                         icon: Icons.image,
                         isActive: false,
-                        onPressed: _showImageUrlDialog,
+                        onPressed: widget.onImageAdded
                       ),
                     const SizedBox(width: 8),
                     if (widget.onUndo != null)

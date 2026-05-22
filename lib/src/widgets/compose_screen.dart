@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:rich_text_editor/src/widgets/image_url_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../controllers/rich_text_controller.dart';
@@ -287,7 +288,19 @@ class _ComposeScreenState extends State<ComposeScreen> {
       }
     });
   }
-
+  void _showImageUrlDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => ImageUrlDialog(
+        onImageUrlAdded: (url) {
+          Navigator.pop(context);
+          _bodyController.addImage(url);
+          _imagesNotifier.value = List.from(_bodyController.images);
+          _saveState();
+        },
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -367,11 +380,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
                           _bodyFocusNode.requestFocus();
                         },
                         onSelectionChanged: (value) {},
-                        onImageAdded: (url) {
-                          _bodyController.addImage(url);
-                          _imagesNotifier.value = List.from(_bodyController.images);
-                          _saveState();
-                        },
+                        onImageAdded: _showImageUrlDialog,
                       );
                     },
                   );
