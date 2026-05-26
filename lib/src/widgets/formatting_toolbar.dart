@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../controllers/rich_text_controller.dart';
 import 'color_palette.dart';
 import 'custom_dropdown.dart';
-import 'image_url_dialog.dart';
 
 class FormattingToolbar extends StatefulWidget {
   final RichTextController controller;

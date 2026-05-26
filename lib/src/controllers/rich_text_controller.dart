@@ -133,6 +133,7 @@ class RichTextController extends TextEditingController {
   set value(TextEditingValue newValue) {
     final oldText = _lastValue.text;
     final newText = newValue.text;
+    const imagePlaceholder = '￼';
 
     if (newText.length > oldText.length) {
       final addedCount = newText.length - oldText.length;
@@ -148,6 +149,12 @@ class RichTextController extends TextEditingController {
           spans[spans.indexOf(span)] = span.copyWith(
             end: span.end + addedCount,
           );
+        }
+      }
+
+      for (int i = 0; i < images.length; i++) {
+        if (images[i].position >= insertPos) {
+          images[i] = images[i].copyWith(position: images[i].position + addedCount);
         }
       }
 
@@ -171,6 +178,16 @@ class RichTextController extends TextEditingController {
     } else if (newText.length < oldText.length) {
       final deletedCount = oldText.length - newText.length;
       final deletePos = _findDeletionPoint(oldText, newText);
+
+      final deletedText = oldText.substring(deletePos, deletePos + deletedCount);
+      if (deletedText.contains(imagePlaceholder)) {
+        for (int i = 0; i < deletedText.length; i++) {
+          if (deletedText[i] == imagePlaceholder) {
+            final placeholderPos = deletePos + i;
+            images.removeWhere((img) => img.position == placeholderPos);
+          }
+        }
+      }
 
       // Remove spans that are completely within the deleted range
       spans.removeWhere((span) => span.start >= deletePos && span.end <= deletePos + deletedCount);
@@ -200,6 +217,12 @@ class RichTextController extends TextEditingController {
         }
       }
       spans = newSpans;
+
+      for (int i = 0; i < images.length; i++) {
+        if (images[i].position > deletePos) {
+          images[i] = images[i].copyWith(position: images[i].position - deletedCount);
+        }
+      }
     }
 
     _lastValue = newValue;
@@ -631,14 +654,42 @@ class RichTextController extends TextEditingController {
 
   List<ImageData> extractImageData() => images;
 
-  void addImage(String imageUrl) {
-    final imageData = ImageData(imageUrl: imageUrl);
+  void addImage(String imageUrl, int cursorPosition) {
+    const imagePlaceholder = '￼';
+    final newText = text.substring(0, cursorPosition) + imagePlaceholder + text.substring(cursorPosition);
+
+    value = value.copyWith(text: newText);
+
+    final imageData = ImageData(
+      imageUrl: imageUrl,
+      position: cursorPosition,
+    );
     images.add(imageData);
     notifyListeners();
   }
 
   void removeImage(String imageId) {
-    images.removeWhere((img) => img.id == imageId);
+    final imageIndex = images.indexWhere((img) => img.id == imageId);
+    if (imageIndex != -1) {
+      final imageData = images[imageIndex];
+      const imagePlaceholder = '￼';
+
+      if (imageData.position < text.length && text[imageData.position] == imagePlaceholder) {
+        final newText = text.substring(0, imageData.position) + text.substring(imageData.position + 1);
+
+        images.removeAt(imageIndex);
+
+        for (var i = imageIndex; i < images.length; i++) {
+          if (images[i].position > imageData.position) {
+            images[i] = images[i].copyWith(position: images[i].position - 1);
+          }
+        }
+
+        value = value.copyWith(text: newText);
+      } else {
+        images.removeAt(imageIndex);
+      }
+    }
     notifyListeners();
   }
 
@@ -671,40 +722,118 @@ class RichTextController extends TextEditingController {
     required bool withComposing,
   }) {
     final text = this.text;
-    if (spans.isEmpty) {
-      return TextSpan(text: text, style: style);
-    }
-
-    final children = <TextSpan>[];
+    const imagePlaceholder = '￼';
+    final children = <InlineSpan>[];
     var lastEnd = 0;
 
     final sortedSpans = [...spans]..sort((a, b) => a.start.compareTo(b.start));
 
+    for (int i = 0; i < text.length; i++) {
+      if (text[i] == imagePlaceholder) {
+        if (i > lastEnd) {
+          _addTextSpans(text.substring(lastEnd, i), lastEnd, style, sortedSpans, children);
+        }
+
+        final image = images.firstWhere(
+          (img) => img.position == i,
+          orElse: () => ImageData(imageUrl: ''),
+        );
+
+        if (image.imageUrl.isNotEmpty) {
+          children.add(
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        image.imageUrl,
+                        height: 120,
+                        width: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            height: 120,
+                            width: 200,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.image_not_supported, size: 32),
+                                  SizedBox(height: 8),
+                                  Text('Image Error', style: TextStyle(fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        lastEnd = i + 1;
+      }
+    }
+
+    if (lastEnd < text.length) {
+      _addTextSpans(text.substring(lastEnd), lastEnd, style, sortedSpans, children);
+    }
+
+    if (children.isEmpty) {
+      return TextSpan(text: text, style: style);
+    }
+
+    return TextSpan(children: children, style: style);
+  }
+
+  void _addTextSpans(
+    String textSegment,
+    int segmentStart,
+    TextStyle? style,
+    List<SpanData> sortedSpans,
+    List<InlineSpan> children,
+  ) {
+    final segmentEnd = segmentStart + textSegment.length;
+    var segmentLastEnd = 0;
+
     for (final span in sortedSpans) {
-      if (span.start > lastEnd) {
+      if (span.end <= segmentStart || span.start >= segmentEnd) continue;
+
+      final spanStartInSegment = max(0, span.start - segmentStart);
+      final spanEndInSegment = min(segmentEnd - segmentStart, span.end - segmentStart);
+
+      if (spanStartInSegment > segmentLastEnd) {
         children.add(TextSpan(
-          text: text.substring(lastEnd, span.start),
+          text: textSegment.substring(segmentLastEnd, spanStartInSegment),
           style: style,
         ));
       }
 
-      final spanEnd = span.end.clamp(span.start, text.length);
       children.add(TextSpan(
-        text: text.substring(span.start, spanEnd),
+        text: textSegment.substring(spanStartInSegment, spanEndInSegment),
         style: (style ?? const TextStyle()).merge(span.toTextStyle()),
       ));
 
-      lastEnd = span.end;
+      segmentLastEnd = spanEndInSegment;
     }
 
-    if (lastEnd < text.length) {
+    if (segmentLastEnd < segmentEnd - segmentStart) {
       children.add(TextSpan(
-        text: text.substring(lastEnd),
+        text: textSegment.substring(segmentLastEnd),
         style: style,
       ));
     }
-
-    return TextSpan(children: children, style: style);
   }
 }
 

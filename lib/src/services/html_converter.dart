@@ -7,60 +7,75 @@ class HtmlConverter {
   static String toHtml(String text, List<SpanData> spans, List<ImageData> images, String alignment) {
     if (text.isEmpty && images.isEmpty) return '';
 
+    const imagePlaceholder = '￼';
     final buffer = StringBuffer();
     buffer.write('<div style="text-align: $alignment;">');
 
-    // Add text with formatting
-    if (text.isNotEmpty) {
-      buffer.write(_textToHtml(text, spans));
+    if (text.isEmpty) {
+      buffer.write('</div>');
+      return buffer.toString();
     }
 
-    // Add images
-    for (final image in images) {
-      buffer.write('<br/>');
-      if (image.linkUrl != null && image.linkUrl!.isNotEmpty) {
-        buffer.write('<a href="${_escapeHtml(image.linkUrl!)}" target="_blank">');
+    final sortedSpans = [...spans]..sort((a, b) => a.start.compareTo(b.start));
+    var lastEnd = 0;
+
+    for (int i = 0; i < text.length; i++) {
+      if (text[i] == imagePlaceholder) {
+        if (i > lastEnd) {
+          _addFormattedTextSegment(buffer, text.substring(lastEnd, i), lastEnd, sortedSpans);
+        }
+
+        final imageData = images.firstWhere(
+          (img) => img.position == i,
+          orElse: () => ImageData(imageUrl: ''),
+        );
+
+        if (imageData.imageUrl.isNotEmpty) {
+          if (imageData.linkUrl != null && imageData.linkUrl!.isNotEmpty) {
+            buffer.write('<a href="${_escapeHtml(imageData.linkUrl!)}" target="_blank">');
+          }
+          buffer.write('<img src="${_escapeHtml(imageData.imageUrl)}" style="max-width: 200px; margin: 8px 0; border: none;" alt="image"/>');
+          if (imageData.linkUrl != null && imageData.linkUrl!.isNotEmpty) {
+            buffer.write('</a>');
+          }
+        }
+        lastEnd = i + 1;
       }
-      buffer.write('<img src="${_escapeHtml(image.imageUrl)}" style="max-width: 200px; margin: 8px 0; border: none;" alt="image"/>');
-      if (image.linkUrl != null && image.linkUrl!.isNotEmpty) {
-        buffer.write('</a>');
-      }
+    }
+
+    if (lastEnd < text.length) {
+      _addFormattedTextSegment(buffer, text.substring(lastEnd), lastEnd, sortedSpans);
     }
 
     buffer.write('</div>');
     return buffer.toString();
   }
 
-  static String _textToHtml(String text, List<SpanData> spans) {
-    if (spans.isEmpty) {
-      return '<p>${_escapeHtml(text)}</p>';
-    }
-
-    final buffer = StringBuffer();
+  static void _addFormattedTextSegment(StringBuffer buffer, String textSegment, int segmentStart, List<SpanData> sortedSpans) {
     var lastEnd = 0;
-    final sortedSpans = [...spans]..sort((a, b) => a.start.compareTo(b.start));
+    final segmentEnd = segmentStart + textSegment.length;
 
     for (final span in sortedSpans) {
-      // Add text before span
-      if (span.start > lastEnd) {
-        buffer.write(_escapeHtml(text.substring(lastEnd, span.start)));
+      if (span.end <= segmentStart || span.start >= segmentEnd) continue;
+
+      final spanStartInSegment = span.start > segmentStart ? span.start - segmentStart : 0;
+      final spanEndInSegment = span.end < segmentEnd ? span.end - segmentStart : textSegment.length;
+
+      if (spanStartInSegment > lastEnd) {
+        buffer.write(_escapeHtml(textSegment.substring(lastEnd, spanStartInSegment)));
       }
 
-      // Add formatted text
-      final spanEnd = span.end.clamp(span.start, text.length);
-      final spanText = text.substring(span.start, spanEnd);
+      final spanText = textSegment.substring(spanStartInSegment, spanEndInSegment);
       buffer.write(_formatSpan(spanText, span));
 
-      lastEnd = spanEnd;
+      lastEnd = spanEndInSegment;
     }
 
-    // Add remaining text
-    if (lastEnd < text.length) {
-      buffer.write(_escapeHtml(text.substring(lastEnd)));
+    if (lastEnd < textSegment.length) {
+      buffer.write(_escapeHtml(textSegment.substring(lastEnd)));
     }
-
-    return buffer.toString();
   }
+
 
   static String _formatSpan(String text, SpanData span) {
     var html = _escapeHtml(text);
@@ -192,6 +207,8 @@ class HtmlConverter {
     List<ImageData> images,
     int depth,
   ) {
+    const imagePlaceholder = '￼';
+
     if (node is html_dom.Text) {
       final nodeText = node.text;
       if (nodeText.isNotEmpty) {
@@ -207,9 +224,11 @@ class HtmlConverter {
             ? (node.parent as html_dom.Element).attributes['href'] ?? ''
             : '';
         if (src.isNotEmpty) {
+          text.write(imagePlaceholder);
           images.add(ImageData(
             id: _generateId(),
             imageUrl: src,
+            position: text.length - 1,
             linkUrl: linkUrl.isNotEmpty ? linkUrl : null,
           ));
         }

@@ -9,8 +9,6 @@ import '../models/image_model.dart';
 import '../services/undo_redo_service.dart';
 import '../services/html_converter.dart';
 import '../widgets/formatting_toolbar.dart';
-import '../widgets/image_preview_dialog.dart';
-import '../widgets/image_link_dialog.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/html_import_dialog.dart';
 import '../config/editor_config.dart';
@@ -38,7 +36,6 @@ class _ComposeScreenState extends State<ComposeScreen> {
   late ValueNotifier<String> _textAlignmentNotifier;
   late ValueNotifier<bool> _canUndoNotifier;
   late ValueNotifier<bool> _canRedoNotifier;
-  late ValueNotifier<List<ImageData>> _imagesNotifier;
   bool _isRestoringState = false;
 
   @override
@@ -50,7 +47,6 @@ class _ComposeScreenState extends State<ComposeScreen> {
     _textAlignmentNotifier = ValueNotifier<String>('left');
     _canUndoNotifier = ValueNotifier<bool>(false);
     _canRedoNotifier = ValueNotifier<bool>(false);
-    _imagesNotifier = ValueNotifier<List<ImageData>>([]);
 
     // Save initial state
     _saveState();
@@ -106,7 +102,6 @@ class _ComposeScreenState extends State<ComposeScreen> {
               .map((img) => ImageData.fromJson(img as Map<String, dynamic>))
               .toList();
           _bodyController.images = imagesList;
-          _imagesNotifier.value = List.from(imagesList);
         }
         _textAlignmentNotifier.value = data['alignment'] ?? 'left';
       } else {
@@ -140,7 +135,6 @@ class _ComposeScreenState extends State<ComposeScreen> {
       _bodyController.text = importData.text;
       _bodyController.spans = importData.spans;
       _bodyController.images = importData.images;
-      _imagesNotifier.value = List.from(importData.images);
       _textAlignmentNotifier.value = importData.alignment;
 
       _isRestoringState = false;
@@ -199,7 +193,6 @@ class _ComposeScreenState extends State<ComposeScreen> {
       _bodyController.text = state.text;
       _bodyController.spans = state.spans;
       _bodyController.images = state.images;
-      _imagesNotifier.value = List.from(state.images);
       _textAlignmentNotifier.value = state.alignment;
       _isRestoringState = false;
       _updateUndoRedoButtons();
@@ -213,7 +206,6 @@ class _ComposeScreenState extends State<ComposeScreen> {
       _bodyController.text = state.text;
       _bodyController.spans = state.spans;
       _bodyController.images = state.images;
-      _imagesNotifier.value = List.from(state.images);
       _textAlignmentNotifier.value = state.alignment;
       _isRestoringState = false;
       _updateUndoRedoButtons();
@@ -227,7 +219,6 @@ class _ComposeScreenState extends State<ComposeScreen> {
     _textAlignmentNotifier.dispose();
     _canUndoNotifier.dispose();
     _canRedoNotifier.dispose();
-    _imagesNotifier.dispose();
     super.dispose();
   }
 
@@ -294,8 +285,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
       builder: (context) => ImageUrlDialog(
         onImageUrlAdded: (url) {
           Navigator.pop(context);
-          _bodyController.addImage(url);
-          _imagesNotifier.value = List.from(_bodyController.images);
+          _bodyController.addImage(url, _bodyController.selection.baseOffset);
           _saveState();
         },
       ),
@@ -390,217 +380,38 @@ class _ComposeScreenState extends State<ComposeScreen> {
           ),
           const Divider(height: 0),
           Expanded(
-            child: Column(
-              children: [
-                ValueListenableBuilder<String>(
-                  valueListenable: _textAlignmentNotifier,
-                  builder: (context, alignment, _) {
-                    return Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('Enter Your Message',style: TextStyle(fontSize: 18,fontWeight: FontWeight.w500,letterSpacing: 0.8)),
-                            SizedBox(height: 4),
-                            TextField(
-                              controller: _bodyController,
-                              focusNode: _bodyFocusNode,
-                              maxLines: null,
-                              textAlign: _getTextAlign(alignment),
-                              decoration: InputDecoration(
-                                hintText: 'Write message...',
-                                border: OutlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.black),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                contentPadding: const EdgeInsets.all(12),
-                              ),
-                              textAlignVertical: TextAlignVertical.top,
+            child: ValueListenableBuilder<String>(
+              valueListenable: _textAlignmentNotifier,
+              builder: (context, alignment, _) {
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Enter Your Message',style: TextStyle(fontSize: 18,fontWeight: FontWeight.w500,letterSpacing: 0.8)),
+                      SizedBox(height: 4),
+                      Expanded(
+                        child: TextField(
+                          controller: _bodyController,
+                          focusNode: _bodyFocusNode,
+                          maxLines: null,
+                          textAlign: _getTextAlign(alignment),
+                          decoration: InputDecoration(
+                            hintText: 'Write message...',
+                            border: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.black),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          ],
+                            contentPadding: const EdgeInsets.all(12),
+                          ),
+                          textAlignVertical: TextAlignVertical.top,
                         ),
                       ),
-                    );
-                  },
-                ),
-                ValueListenableBuilder<List<ImageData>>(
-                  valueListenable: _imagesNotifier,
-                  builder: (context, images, _) {
-                    if (images.isEmpty) return const SizedBox.shrink();
-                    return Container(
-                      height: 120,
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(color: Colors.grey[300]!),
-                        ),
-                      ),
-                      child: ReorderableListView(
-                        scrollDirection: Axis.horizontal,
-                        onReorder: (oldIndex, newIndex) {
-                          _bodyController.reorderImages(oldIndex, newIndex);
-                          _imagesNotifier.value = List.from(_bodyController.images);
-                          _saveState();
-                        },
-                        children: [
-                          for (int i = 0; i < images.length; i++)
-                            SizedBox(
-                              key: ValueKey(images[i].id),
-                              width: 100,
-                              height: 100,
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
-                                child: Stack(
-                                  children: [
-                                    GestureDetector(
-                                      onTap: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => ImagePreviewDialog(
-                                            imageUrl: images[i].imageUrl,
-                                            linkUrl: images[i].linkUrl,
-                                            onAddLinkPressed: () {
-                                              Navigator.pop(context);
-                                              showDialog(
-                                                context: context,
-                                                builder: (context) => ImageLinkDialog(
-                                                  initialLink: images[i].linkUrl,
-                                                  onLinkSaved: (link) {
-                                                    _bodyController.updateImageLink(images[i].id, link);
-                                                    _imagesNotifier.value = List.from(_bodyController.images);
-                                                    _saveState();
-                                                  },
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        );
-                                      },
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: Colors.grey),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Stack(
-                                            children: [
-                                              Image.network(
-                                                images[i].imageUrl,
-                                                fit: BoxFit.cover,
-                                                width: 100,
-                                                height: 100,
-                                                errorBuilder: (context, error, stackTrace) {
-                                                  return const Center(
-                                                    child: Column(
-                                                      mainAxisAlignment: MainAxisAlignment.center,
-                                                      children: [
-                                                        Icon(Icons.image_not_supported, size: 24),
-                                                        SizedBox(height: 4),
-                                                        Text('Load Error', style: TextStyle(fontSize: 10)),
-                                                      ],
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                              if (images[i].linkUrl != null && images[i].linkUrl!.isNotEmpty)
-                                                Positioned(
-                                                  bottom: 4,
-                                                  left: 4,
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.blue.withValues(alpha: 0.8),
-                                                      borderRadius: BorderRadius.circular(4),
-                                                    ),
-                                                    child: const Icon(Icons.link, size: 12, color: Colors.white),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 4,
-                                      right: 4,
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          _bodyController.removeImage(images[i].id);
-                                          _imagesNotifier.value = List.from(_bodyController.images);
-                                          _saveState();
-                                        },
-                                        child: Container(
-                                          width: 28,
-                                          height: 28,
-                                          decoration: BoxDecoration(
-                                            color: Colors.red,
-                                            shape: BoxShape.circle,
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.3),
-                                                blurRadius: 4,
-                                              ),
-                                            ],
-                                          ),
-                                          child: const Icon(
-                                            Icons.close,
-                                            size: 16,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 4,
-                                      left: 4,
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          showDialog(
-                                            context: context,
-                                            builder: (context) => ImageLinkDialog(
-                                              initialLink: images[i].linkUrl,
-                                              onLinkSaved: (link) {
-                                                _bodyController.updateImageLink(images[i].id, link);
-                                                _imagesNotifier.value = List.from(_bodyController.images);
-                                                _saveState();
-                                              },
-                                            ),
-                                          );
-                                        },
-                                        child: Container(
-                                          width: 28,
-                                          height: 28,
-                                          decoration: BoxDecoration(
-                                            color: Colors.black54,
-                                            shape: BoxShape.circle,
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.3),
-                                                blurRadius: 4,
-                                              ),
-                                            ],
-                                          ),
-                                          child: const Icon(
-                                            Icons.more_vert,
-                                            size: 16,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ],
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
