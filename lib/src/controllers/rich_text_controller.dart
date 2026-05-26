@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/span_data_model.dart';
 import '../models/image_model.dart';
+import '../widgets/inline_image_widget.dart';
 
 class TextFormatting {
   bool bold;
@@ -126,6 +127,7 @@ class RichTextController extends TextEditingController {
   List<SpanData> spans = [];
   List<ImageData> images = [];
   TextFormatting _activeFormatting = TextFormatting();
+  String? selectedImageId;
 
   TextEditingValue _lastValue = TextEditingValue.empty;
 
@@ -715,6 +717,38 @@ class RichTextController extends TextEditingController {
     notifyListeners();
   }
 
+  void selectImage(String imageId) {
+    selectedImageId = imageId;
+    notifyListeners();
+  }
+
+  void deselectImage() {
+    selectedImageId = null;
+    notifyListeners();
+  }
+
+  void resizeImage(String imageId, double width, double height) {
+    const minSize = 28.0;
+    const maxSize = 200.0;
+
+    final clampedWidth = width.clamp(minSize, maxSize);
+    final clampedHeight = height.clamp(minSize, maxSize);
+
+    final index = images.indexWhere((img) => img.id == imageId);
+    if (index != -1) {
+      images[index] = images[index].copyWith(
+        width: clampedWidth,
+        height: clampedHeight,
+      );
+      notifyListeners();
+    }
+  }
+
+  double getMaxImageHeight() {
+    if (images.isEmpty) return 0;
+    return images.map((img) => img.height).reduce((a, b) => a > b ? a : b);
+  }
+
   @override
   TextSpan buildTextSpan({
     required BuildContext context,
@@ -740,44 +774,16 @@ class RichTextController extends TextEditingController {
         );
 
         if (image.imageUrl.isNotEmpty) {
+          final isSelected = selectedImageId == image.id;
           children.add(
             WidgetSpan(
               alignment: PlaceholderAlignment.middle,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-                child: Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        image.imageUrl,
-                        height: 120,
-                        width: 200,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            height: 120,
-                            width: 200,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.image_not_supported, size: 32),
-                                  SizedBox(height: 8),
-                                  Text('Image Error', style: TextStyle(fontSize: 12)),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+              child: InlineImageWidget(
+                image: image,
+                isSelected: isSelected,
+                onSelect: () => selectImage(image.id),
+                onDeselect: () => deselectImage(),
+                onResize: (width, height) => resizeImage(image.id, width, height),
               ),
             ),
           );

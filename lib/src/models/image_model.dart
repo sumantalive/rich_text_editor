@@ -5,12 +5,16 @@ class ImageData {
   final String imageUrl;
   final int position;
   final String? linkUrl;
+  final double width;
+  final double height;
 
   ImageData({
     String? id,
     required this.imageUrl,
     this.position = 0,
     this.linkUrl,
+    this.width = 28,
+    this.height = 28,
   }) : id = id ?? const Uuid().v4();
 
   ImageData copyWith({
@@ -18,12 +22,16 @@ class ImageData {
     String? imageUrl,
     int? position,
     String? linkUrl,
+    double? width,
+    double? height,
   }) {
     return ImageData(
       id: id ?? this.id,
       imageUrl: imageUrl ?? this.imageUrl,
       position: position ?? this.position,
       linkUrl: linkUrl ?? this.linkUrl,
+      width: width ?? this.width,
+      height: height ?? this.height,
     );
   }
 
@@ -32,6 +40,8 @@ class ImageData {
     'imageUrl': imageUrl,
     'position': position,
     'linkUrl': linkUrl,
+    'width': width,
+    'height': height,
   };
 
   factory ImageData.fromJson(Map<String, dynamic> json) => ImageData(
@@ -39,5 +49,7 @@ class ImageData {
     imageUrl: json['imageUrl'] as String,
     position: json['position'] as int? ?? 0,
     linkUrl: json['linkUrl'] as String?,
+    width: (json['width'] as num?)?.toDouble() ?? 28,
+    height: (json['height'] as num?)?.toDouble() ?? 28,
   );
 }
