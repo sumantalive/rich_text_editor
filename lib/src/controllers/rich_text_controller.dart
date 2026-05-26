@@ -729,7 +729,7 @@ class RichTextController extends TextEditingController {
 
   void resizeImage(String imageId, double width, double height) {
     const minSize = 28.0;
-    const maxSize = 200.0;
+    const maxSize = 2000.0;
 
     final clampedWidth = width.clamp(minSize, maxSize);
     final clampedHeight = height.clamp(minSize, maxSize);
