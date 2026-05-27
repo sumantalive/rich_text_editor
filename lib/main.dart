@@ -3,6 +3,7 @@
 //
 // To use this package in your app:
 //
+
 // 1. Add to pubspec.yaml:
 //    dependencies:
 //      rich_text_editor: ^1.0.0
