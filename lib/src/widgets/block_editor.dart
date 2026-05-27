@@ -382,6 +382,7 @@ class _BlockEditorState extends State<BlockEditor> {
   Widget _buildBlock(EditorBlock block, bool isFirst, double maxImageWidth) {
     block.controller.maxImageWidth = maxImageWidth;
     return Padding(
+      key: ValueKey(block.id),
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: TextField(
         controller: block.controller,
