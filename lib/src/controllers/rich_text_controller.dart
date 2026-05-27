@@ -820,7 +820,10 @@ class RichTextController extends TextEditingController {
           final isSelected = selectedImageId == image.id;
           children.add(
             WidgetSpan(
-              alignment: PlaceholderAlignment.middle,
+              // Align the image's top with the line top so the line height
+              // grows to the image's height (image flows downward and stays
+              // inside the editor) instead of centering and overflowing above.
+              alignment: PlaceholderAlignment.top,
               child: InlineImageWidget(
                 image: image,
                 isSelected: isSelected,

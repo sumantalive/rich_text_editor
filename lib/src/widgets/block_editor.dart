@@ -322,6 +322,17 @@ class _BlockEditorState extends State<BlockEditor> {
     }
   }
 
+  /// Focuses the last block and places the caret at its end, so tapping the
+  /// empty area below the content lets the user keep writing after the text.
+  void _focusLastBlock() {
+    final blocks = widget.controller.blocks;
+    if (blocks.isEmpty) return;
+    final last = blocks.last;
+    last.focusNode.requestFocus();
+    last.controller.selection =
+        TextSelection.collapsed(offset: last.controller.text.length);
+  }
+
   @override
   Widget build(BuildContext context) {
     final blocks = widget.controller.blocks;
@@ -330,12 +341,24 @@ class _BlockEditorState extends State<BlockEditor> {
         final maxImageWidth =
             (constraints.maxWidth - 24).clamp(0.0, double.infinity);
         return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var i = 0; i < blocks.length; i++)
-                _buildBlock(blocks[i], i == 0, maxImageWidth),
-            ],
+          // Always allow the board to scroll, even when content is shorter
+          // than the viewport (so long documents/tall images are reachable).
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            // Make the editable surface fill the box height so the tap area
+            // below the last line is part of the editor, not dead space.
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _focusLastBlock,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < blocks.length; i++)
+                    _buildBlock(blocks[i], i == 0, maxImageWidth),
+                ],
+              ),
+            ),
           ),
         );
       },
