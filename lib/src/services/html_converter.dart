@@ -34,7 +34,7 @@ class HtmlConverter {
           if (imageData.linkUrl != null && imageData.linkUrl!.isNotEmpty) {
             buffer.write('<a href="${_escapeHtml(imageData.linkUrl!)}" target="_blank">');
           }
-          buffer.write('<img src="${_escapeHtml(imageData.imageUrl)}" style="max-width: 200px; margin: 8px 0; border: none;" alt="image"/>');
+          buffer.write('<img src="${_escapeHtml(imageData.imageUrl)}" width="${imageData.width.round()}" height="${imageData.height.round()}" style="width: ${imageData.width.round()}px; height: ${imageData.height.round()}px; margin: 8px 0; border: none;" alt="image"/>');
           if (imageData.linkUrl != null && imageData.linkUrl!.isNotEmpty) {
             buffer.write('</a>');
           }
@@ -225,11 +225,16 @@ class HtmlConverter {
             : '';
         if (src.isNotEmpty) {
           text.write(imagePlaceholder);
+          final imgStyle = node.attributes['style'] ?? '';
+          final width = _extractImageDimension(node, imgStyle, 'width');
+          final height = _extractImageDimension(node, imgStyle, 'height');
           images.add(ImageData(
             id: _generateId(),
             imageUrl: src,
             position: text.length - 1,
             linkUrl: linkUrl.isNotEmpty ? linkUrl : null,
+            width: width ?? 28,
+            height: height ?? width ?? 28,
           ));
         }
       } else if (tag == 'br') {
@@ -312,6 +317,28 @@ class HtmlConverter {
       if (fontFamily.isNotEmpty) modified = modified.copyWith(fontFamily: fontFamily);
       return modified;
     });
+  }
+
+  /// Reads an image dimension ([property] is 'width' or 'height') from the
+  /// inline style (`width`/`height` or `max-width`/`max-height`, px values),
+  /// falling back to the matching HTML attribute. Returns null if absent.
+  static double? _extractImageDimension(html_dom.Element node, String style, String property) {
+    for (final prop in [property, 'max-$property']) {
+      final regex = RegExp('(?<![\\w-])$prop\\s*:\\s*(\\d+(?:\\.\\d+)?)\\s*px', caseSensitive: false);
+      final match = regex.firstMatch(style);
+      if (match != null) {
+        final value = double.tryParse(match.group(1) ?? '');
+        if (value != null) return value;
+      }
+    }
+
+    final attr = node.attributes[property];
+    if (attr != null) {
+      final match = RegExp(r'(\d+(?:\.\d+)?)').firstMatch(attr);
+      if (match != null) return double.tryParse(match.group(1) ?? '');
+    }
+
+    return null;
   }
 
   static double _extractValue(String style, String property, String pattern, double defaultValue) {
