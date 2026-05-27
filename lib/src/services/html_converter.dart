@@ -1,21 +1,118 @@
 import '../models/span_data_model.dart';
 import '../models/image_model.dart';
+import '../models/block_data.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as html_dom;
 
 class HtmlConverter {
-  static String toHtml(String text, List<SpanData> spans, List<ImageData> images, String alignment) {
-    if (text.isEmpty && images.isEmpty) return '';
-
-    const imagePlaceholder = '￼';
+  /// Serializes a list of blocks to Gmail-style HTML: one `<div>` per line,
+  /// each carrying its own `text-align`, with inline formatting, links and
+  /// natural-size images. Empty lines become `<div><br></div>`.
+  static String toHtmlFromBlocks(List<BlockData> blocks) {
+    if (blocks.isEmpty) return '';
     final buffer = StringBuffer();
-    buffer.write('<div style="text-align: $alignment;">');
-
-    if (text.isEmpty) {
+    for (final block in blocks) {
+      buffer.write('<div style="text-align: ${block.alignment};">');
+      if (block.text.isEmpty && block.images.isEmpty) {
+        buffer.write('<br>');
+      } else {
+        _writeBlockInner(buffer, block.text, block.spans, block.images);
+      }
       buffer.write('</div>');
-      return buffer.toString();
     }
+    return buffer.toString();
+  }
 
+  /// Parses HTML into per-line blocks, preserving each block's alignment.
+  static List<BlockData> parseHtmlToBlocks(String htmlContent) {
+    final doc = html_parser.parse(htmlContent);
+    if (doc.body == null) return [BlockData(text: '')];
+
+    final out = <BlockData>[];
+    _collectBlocks(doc.body!, 'left', out);
+    return out.isEmpty ? [BlockData(text: '')] : out;
+  }
+
+  /// Walks the tree collecting one [BlockData] per leaf block element
+  /// (`div`/`p` with no block children). Alignment cascades from ancestors.
+  static void _collectBlocks(html_dom.Element el, String inherited, List<BlockData> out) {
+    final alignment = _alignmentOf(el, inherited);
+    final blockChildren = el.children
+        .where((c) => c.localName == 'div' || c.localName == 'p')
+        .toList();
+
+    if (blockChildren.isEmpty) {
+      out.addAll(_parseLeafBlock(el, alignment));
+    } else {
+      for (final child in blockChildren) {
+        _collectBlocks(child, alignment, out);
+      }
+    }
+  }
+
+  static String _alignmentOf(html_dom.Element el, String inherited) {
+    final style = el.attributes['style'] ?? '';
+    final match = RegExp(r'text-align:\s*(\w+)').firstMatch(style);
+    return match != null ? (match.group(1) ?? inherited) : inherited;
+  }
+
+  /// Parses the inline content of a leaf block. A `<br>` inside it produces an
+  /// extra (empty or split) block so each rendered line stays separate.
+  static List<BlockData> _parseLeafBlock(html_dom.Element el, String alignment) {
+    final text = StringBuffer();
+    final spans = <SpanData>[];
+    final images = <ImageData>[];
+    for (final node in el.nodes) {
+      _parseNode(node, text, spans, images, 0);
+    }
+    var finalText = text.toString();
+    while (finalText.endsWith('\n')) {
+      finalText = finalText.substring(0, finalText.length - 1);
+    }
+    _adjustSpanOffsets(spans, finalText);
+    return _splitIntoLines(finalText, spans, images, alignment);
+  }
+
+  /// Splits a parsed block on any embedded newlines into separate [BlockData],
+  /// distributing spans and images so each line keeps its formatting.
+  static List<BlockData> _splitIntoLines(
+    String text,
+    List<SpanData> spans,
+    List<ImageData> images,
+    String alignment,
+  ) {
+    if (!text.contains('\n')) {
+      return [BlockData(text: text, spans: spans, images: images, alignment: alignment)];
+    }
+    final out = <BlockData>[];
+    var lineStart = 0;
+    for (var i = 0; i <= text.length; i++) {
+      if (i == text.length || text[i] == '\n') {
+        final lineEnd = i;
+        final lineText = text.substring(lineStart, lineEnd);
+        final lineSpans = <SpanData>[];
+        for (final s in spans) {
+          final ns = s.start.clamp(lineStart, lineEnd);
+          final ne = s.end.clamp(lineStart, lineEnd);
+          if (ne > ns) lineSpans.add(s.copyWith(start: ns - lineStart, end: ne - lineStart));
+        }
+        final lineImages = <ImageData>[];
+        for (final img in images) {
+          if (img.position >= lineStart && img.position < lineEnd) {
+            lineImages.add(img.copyWith(position: img.position - lineStart));
+          }
+        }
+        out.add(BlockData(text: lineText, spans: lineSpans, images: lineImages, alignment: alignment));
+        lineStart = i + 1;
+      }
+    }
+    return out;
+  }
+
+  /// Writes the inner HTML of one block: formatted text segments interleaved
+  /// with inline images (shared by [toHtml] and [toHtmlFromBlocks]).
+  static void _writeBlockInner(StringBuffer buffer, String text, List<SpanData> spans, List<ImageData> images) {
+    const imagePlaceholder = '￼';
     final sortedSpans = [...spans]..sort((a, b) => a.start.compareTo(b.start));
     var lastEnd = 0;
 
@@ -24,20 +121,12 @@ class HtmlConverter {
         if (i > lastEnd) {
           _addFormattedTextSegment(buffer, text.substring(lastEnd, i), lastEnd, sortedSpans);
         }
-
         final imageData = images.firstWhere(
           (img) => img.position == i,
           orElse: () => ImageData(imageUrl: ''),
         );
-
         if (imageData.imageUrl.isNotEmpty) {
-          if (imageData.linkUrl != null && imageData.linkUrl!.isNotEmpty) {
-            buffer.write('<a href="${_escapeHtml(imageData.linkUrl!)}" target="_blank">');
-          }
-          buffer.write('<img src="${_escapeHtml(imageData.imageUrl)}" width="${imageData.width.round()}" height="${imageData.height.round()}" style="width: ${imageData.width.round()}px; height: ${imageData.height.round()}px; margin: 8px 0; border: none;" alt="image"/>');
-          if (imageData.linkUrl != null && imageData.linkUrl!.isNotEmpty) {
-            buffer.write('</a>');
-          }
+          _writeImage(buffer, imageData);
         }
         lastEnd = i + 1;
       }
@@ -46,6 +135,38 @@ class HtmlConverter {
     if (lastEnd < text.length) {
       _addFormattedTextSegment(buffer, text.substring(lastEnd), lastEnd, sortedSpans);
     }
+  }
+
+  /// Emits one `<img>` (optionally wrapped in a link). Width/height are only
+  /// written when known (> 0) so unsized images render at their natural size.
+  static void _writeImage(StringBuffer buffer, ImageData imageData) {
+    final hasLink = imageData.linkUrl != null && imageData.linkUrl!.isNotEmpty;
+    if (hasLink) {
+      buffer.write('<a href="${_escapeHtml(imageData.linkUrl!)}" target="_blank">');
+    }
+    final w = imageData.width.round();
+    final h = imageData.height.round();
+    final sizeAttrs = (w > 0 && h > 0) ? ' width="$w" height="$h"' : '';
+    final sizeStyle = (w > 0 && h > 0) ? 'width: ${w}px; height: ${h}px; ' : '';
+    buffer.write(
+      '<img src="${_escapeHtml(imageData.imageUrl)}"$sizeAttrs style="${sizeStyle}max-width: 100%; margin: 8px 0; border: none;" alt="image"/>',
+    );
+    if (hasLink) {
+      buffer.write('</a>');
+    }
+  }
+  static String toHtml(String text, List<SpanData> spans, List<ImageData> images, String alignment) {
+    if (text.isEmpty && images.isEmpty) return '';
+
+    final buffer = StringBuffer();
+    buffer.write('<div style="text-align: $alignment;">');
+
+    if (text.isEmpty) {
+      buffer.write('</div>');
+      return buffer.toString();
+    }
+
+    _writeBlockInner(buffer, text, spans, images);
 
     buffer.write('</div>');
     return buffer.toString();
@@ -233,8 +354,9 @@ class HtmlConverter {
             imageUrl: src,
             position: text.length - 1,
             linkUrl: linkUrl.isNotEmpty ? linkUrl : null,
-            width: width ?? 28,
-            height: height ?? width ?? 28,
+            // 0 = auto: resolve from the image's natural size on load.
+            width: width ?? 0,
+            height: height ?? width ?? 0,
           ));
         }
       } else if (tag == 'br') {

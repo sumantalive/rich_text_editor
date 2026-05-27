@@ -129,10 +129,52 @@ class RichTextController extends TextEditingController {
   TextFormatting _activeFormatting = TextFormatting();
   String? selectedImageId;
 
+  /// Maximum width an inline image may occupy, in logical pixels. Set by the
+  /// editor field from its measured content width so images never overflow it
+  /// horizontally. Defaults to unbounded until the field reports its size.
+  double maxImageWidth = double.infinity;
+
+  /// Paragraph alignment for the line this controller represents in the
+  /// block editor ('left' | 'center' | 'right' | 'justify'). Used both for
+  /// rendering the field and for emitting one aligned <div> per block.
+  String blockAlignment = 'left';
+
   TextEditingValue _lastValue = TextEditingValue.empty;
+
+  /// When true, [value] assignment skips the incremental span/image offset
+  /// math. Used by [setContent] when programmatically replacing the whole
+  /// content (e.g. splitting/merging blocks), where spans/images are supplied
+  /// directly and must not be diffed against the previous text.
+  bool _suppressDiff = false;
+
+  /// Replaces the entire content of this block at once — text, spans, images
+  /// and (optionally) selection — without running the incremental diff that
+  /// normal typing relies on. The caller is responsible for passing spans and
+  /// image positions that already match [text].
+  void setContent({
+    required String text,
+    List<SpanData>? spans,
+    List<ImageData>? images,
+    TextSelection? selection,
+  }) {
+    this.spans = spans ?? <SpanData>[];
+    this.images = images ?? <ImageData>[];
+    _suppressDiff = true;
+    value = TextEditingValue(
+      text: text,
+      selection: selection ?? TextSelection.collapsed(offset: text.length),
+    );
+    _suppressDiff = false;
+  }
 
   @override
   set value(TextEditingValue newValue) {
+    if (_suppressDiff) {
+      _lastValue = newValue;
+      super.value = newValue;
+      return;
+    }
+
     final oldText = _lastValue.text;
     final newText = newValue.text;
     const imagePlaceholder = '￼';
@@ -728,11 +770,12 @@ class RichTextController extends TextEditingController {
   }
 
   void resizeImage(String imageId, double width, double height) {
+    // Only enforce a minimum so the resize handle stays grabbable; no max
+    // limit — images use their natural/user-chosen dimensions.
     const minSize = 28.0;
-    const maxSize = 2000.0;
 
-    final clampedWidth = width.clamp(minSize, maxSize);
-    final clampedHeight = height.clamp(minSize, maxSize);
+    final clampedWidth = width < minSize ? minSize : width;
+    final clampedHeight = height < minSize ? minSize : height;
 
     final index = images.indexWhere((img) => img.id == imageId);
     if (index != -1) {
@@ -781,6 +824,7 @@ class RichTextController extends TextEditingController {
               child: InlineImageWidget(
                 image: image,
                 isSelected: isSelected,
+                maxWidth: maxImageWidth,
                 onSelect: () => selectImage(image.id),
                 onDeselect: () => deselectImage(),
                 onResize: (width, height) => resizeImage(image.id, width, height),

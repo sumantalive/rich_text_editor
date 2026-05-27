@@ -85,25 +85,6 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
     super.dispose();
   }
 
-  void _applyFormatting(TextFormatting formatting) {
-    final selection = widget.controller.selection;
-
-    if (selection.start < selection.end) {
-      // Apply to selected text
-      widget.controller.applyToSelection(formatting, explicitSelection: selection);
-      // Restore selection after formatting
-      Future.microtask(() {
-        widget.controller.selection = selection;
-      });
-    } else {
-      // No selection - set active formatting
-      widget.controller.setActiveFormatting(formatting);
-    }
-
-    _currentFormattingNotifier.value = formatting;
-
-    widget.focusNode?.requestFocus();
-  }
 
   void _showColorPicker(bool isBackground, BuildContext buttonContext) {
     final RenderBox renderBox = buttonContext.findRenderObject() as RenderBox;
@@ -237,49 +218,11 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
   }
 
   void _changeAlignment(String newAlignment) {
-    final text = widget.controller.text;
-    final selection = widget.controller.selection;
-    int applyStart = selection.start;
-    int applyEnd = selection.end;
-
-    if (applyStart >= applyEnd) {
-      applyStart = 0;
-      applyEnd = text.length;
-
-      for (int i = selection.start - 1; i >= 0; i--) {
-        if (text[i] == '\n') {
-          applyStart = i + 1;
-          break;
-        }
-      }
-
-      for (int i = selection.start; i < text.length; i++) {
-        if (text[i] == '\n') {
-          applyEnd = i;
-          break;
-        }
-      }
-
-      widget.controller.selection = TextSelection(baseOffset: applyStart, extentOffset: applyEnd);
-    }
-
-    final currentFormatting = widget.controller.getFormattingAt(applyStart);
-
-    final formatting = TextFormatting(
-      bold: currentFormatting.bold,
-      italic: currentFormatting.italic,
-      underline: currentFormatting.underline,
-      strikethrough: currentFormatting.strikethrough,
-      textColor: currentFormatting.textColor,
-      highlightColor: currentFormatting.highlightColor,
-      fontSize: currentFormatting.fontSize,
-      fontFamily: currentFormatting.fontFamily,
-      alignment: newAlignment,
-    );
-
-    _applyFormatting(formatting);
+    // Alignment is a per-line (per-block) property in the block editor, so we
+    // delegate to the host instead of writing it onto text spans.
     _currentAlignmentNotifier.value = newAlignment;
     widget.onAlignmentChanged?.call(newAlignment);
+    widget.focusNode?.requestFocus();
   }
 
   @override

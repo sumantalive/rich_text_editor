@@ -13,9 +13,13 @@ class ImageData {
     required this.imageUrl,
     this.position = 0,
     this.linkUrl,
-    this.width = 28,
-    this.height = 28,
+    this.width = 0,
+    this.height = 0,
   }) : id = id ?? const Uuid().v4();
+
+  /// Whether this image still needs its natural (intrinsic) size resolved.
+  /// `0` is a sentinel meaning "auto-size from the image's real dimensions".
+  bool get needsNaturalSize => width <= 0 || height <= 0;
 
   ImageData copyWith({
     String? id,
@@ -49,7 +53,7 @@ class ImageData {
     imageUrl: json['imageUrl'] as String,
     position: json['position'] as int? ?? 0,
     linkUrl: json['linkUrl'] as String?,
-    width: (json['width'] as num?)?.toDouble() ?? 28,
-    height: (json['height'] as num?)?.toDouble() ?? 28,
+    width: (json['width'] as num?)?.toDouble() ?? 0,
+    height: (json['height'] as num?)?.toDouble() ?? 0,
   );
 }
