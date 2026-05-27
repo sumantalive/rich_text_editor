@@ -14,7 +14,6 @@ export 'src/services/undo_redo_service.dart';
 
 // Main Widgets
 export 'src/widgets/compose_screen.dart';
-export 'src/widgets/rich_text_editor.dart';
 export 'src/widgets/custom_button.dart';
 export 'src/widgets/custom_dropdown.dart';
 export 'src/widgets/formatting_toolbar.dart';

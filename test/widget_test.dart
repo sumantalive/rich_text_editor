@@ -3,26 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rich_text_editor/rich_text_editor.dart';
 
 void main() {
-  testWidgets('RichTextEditor widget test', (WidgetTester tester) async {
-    // Build our widget
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: RichTextEditor(
-            config: const RichTextEditorConfig(
-              title: 'Test Editor',
-            ),
-          ),
-        ),
-      ),
-    );
-
-    // Verify the title appears in the AppBar
-    expect(find.text('Test Editor'), findsOneWidget);
-
-    // Verify the text input field exists
-    expect(find.byType(TextField), findsWidgets);
-  });
 
   test('RichTextEditorConfig can be customized', () {
     final config = RichTextEditorConfig(
