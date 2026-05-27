@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/span_data_model.dart';
 import '../models/image_model.dart';
+import '../widgets/inline_image_widget.dart';
 
 class TextFormatting {
   bool bold;
@@ -126,13 +127,57 @@ class RichTextController extends TextEditingController {
   List<SpanData> spans = [];
   List<ImageData> images = [];
   TextFormatting _activeFormatting = TextFormatting();
+  String? selectedImageId;
+
+  /// Maximum width an inline image may occupy, in logical pixels. Set by the
+  /// editor field from its measured content width so images never overflow it
+  /// horizontally. Defaults to unbounded until the field reports its size.
+  double maxImageWidth = double.infinity;
+
+  /// Paragraph alignment for the line this controller represents in the
+  /// block editor ('left' | 'center' | 'right' | 'justify'). Used both for
+  /// rendering the field and for emitting one aligned <div> per block.
+  String blockAlignment = 'left';
 
   TextEditingValue _lastValue = TextEditingValue.empty;
 
+  /// When true, [value] assignment skips the incremental span/image offset
+  /// math. Used by [setContent] when programmatically replacing the whole
+  /// content (e.g. splitting/merging blocks), where spans/images are supplied
+  /// directly and must not be diffed against the previous text.
+  bool _suppressDiff = false;
+
+  /// Replaces the entire content of this block at once — text, spans, images
+  /// and (optionally) selection — without running the incremental diff that
+  /// normal typing relies on. The caller is responsible for passing spans and
+  /// image positions that already match [text].
+  void setContent({
+    required String text,
+    List<SpanData>? spans,
+    List<ImageData>? images,
+    TextSelection? selection,
+  }) {
+    this.spans = spans ?? <SpanData>[];
+    this.images = images ?? <ImageData>[];
+    _suppressDiff = true;
+    value = TextEditingValue(
+      text: text,
+      selection: selection ?? TextSelection.collapsed(offset: text.length),
+    );
+    _suppressDiff = false;
+  }
+
   @override
   set value(TextEditingValue newValue) {
+    if (_suppressDiff) {
+      _lastValue = newValue;
+      super.value = newValue;
+      return;
+    }
+
     final oldText = _lastValue.text;
     final newText = newValue.text;
+    const imagePlaceholder = '￼';
 
     if (newText.length > oldText.length) {
       final addedCount = newText.length - oldText.length;
@@ -148,6 +193,12 @@ class RichTextController extends TextEditingController {
           spans[spans.indexOf(span)] = span.copyWith(
             end: span.end + addedCount,
           );
+        }
+      }
+
+      for (int i = 0; i < images.length; i++) {
+        if (images[i].position >= insertPos) {
+          images[i] = images[i].copyWith(position: images[i].position + addedCount);
         }
       }
 
@@ -171,6 +222,16 @@ class RichTextController extends TextEditingController {
     } else if (newText.length < oldText.length) {
       final deletedCount = oldText.length - newText.length;
       final deletePos = _findDeletionPoint(oldText, newText);
+
+      final deletedText = oldText.substring(deletePos, deletePos + deletedCount);
+      if (deletedText.contains(imagePlaceholder)) {
+        for (int i = 0; i < deletedText.length; i++) {
+          if (deletedText[i] == imagePlaceholder) {
+            final placeholderPos = deletePos + i;
+            images.removeWhere((img) => img.position == placeholderPos);
+          }
+        }
+      }
 
       // Remove spans that are completely within the deleted range
       spans.removeWhere((span) => span.start >= deletePos && span.end <= deletePos + deletedCount);
@@ -200,6 +261,12 @@ class RichTextController extends TextEditingController {
         }
       }
       spans = newSpans;
+
+      for (int i = 0; i < images.length; i++) {
+        if (images[i].position > deletePos) {
+          images[i] = images[i].copyWith(position: images[i].position - deletedCount);
+        }
+      }
     }
 
     _lastValue = newValue;
@@ -442,6 +509,79 @@ class RichTextController extends TextEditingController {
     }
   }
 
+  /// Sets the hyperlink on the current selection, or clears it when [url] is
+  /// null/empty. Spans are split at the selection boundaries so only the
+  /// selected text is affected. Unlike [applyPropertyToSelection], this can
+  /// also remove a link (the `??` merge there can never clear a value).
+  void setSelectionLink(String? url, {TextSelection? explicitSelection}) {
+    final selection = explicitSelection ?? this.selection;
+    if (selection.start >= selection.end) return;
+    final link = (url == null || url.isEmpty) ? null : url;
+
+    final selStart = selection.start;
+    final selEnd = selection.end;
+    final newSpans = <SpanData>[];
+
+    for (final span in spans) {
+      if (span.end <= selStart || span.start >= selEnd) {
+        newSpans.add(span); // no overlap
+        continue;
+      }
+      if (span.start < selStart && span.end > selEnd) {
+        newSpans.add(span.copyWith(end: selStart));
+        newSpans.add(_withLink(span.copyWith(start: selStart, end: selEnd), link));
+        newSpans.add(span.copyWith(start: selEnd));
+      } else if (span.start < selStart) {
+        newSpans.add(span.copyWith(end: selStart));
+        newSpans.add(_withLink(span.copyWith(start: selStart), link));
+      } else if (span.end > selEnd) {
+        newSpans.add(_withLink(span.copyWith(end: selEnd), link));
+        newSpans.add(span.copyWith(start: selEnd));
+      } else {
+        newSpans.add(_withLink(span, link));
+      }
+    }
+
+    // Fill selected gaps that had no span (only needed when setting a link).
+    if (link != null) {
+      final covering = newSpans
+          .where((s) => s.start < selEnd && s.end > selStart)
+          .toList()
+        ..sort((a, b) => a.start.compareTo(b.start));
+      var pos = selStart;
+      for (final s in covering) {
+        if (s.start > pos) {
+          newSpans.add(SpanData(start: pos, end: s.start, linkUrl: link));
+        }
+        if (s.end > pos) pos = s.end;
+      }
+      if (pos < selEnd) {
+        newSpans.add(SpanData(start: pos, end: selEnd, linkUrl: link));
+      }
+    }
+
+    spans = newSpans;
+    spans.sort((a, b) => a.start.compareTo(b.start));
+    notifyListeners();
+  }
+
+  /// Returns a copy of [span] with its [SpanData.linkUrl] set to [url],
+  /// including clearing it to null (which `copyWith` cannot do).
+  SpanData _withLink(SpanData span, String? url) => SpanData(
+        start: span.start,
+        end: span.end,
+        bold: span.bold,
+        italic: span.italic,
+        underline: span.underline,
+        strikethrough: span.strikethrough,
+        textColor: span.textColor,
+        highlightColor: span.highlightColor,
+        fontSize: span.fontSize,
+        fontFamily: span.fontFamily,
+        alignment: span.alignment,
+        linkUrl: url,
+      );
+
   void togglePropertyInSelection(String property, {TextSelection? explicitSelection}) {
     final selection = explicitSelection ?? this.selection;
     if (selection.start >= selection.end) return;
@@ -631,14 +771,42 @@ class RichTextController extends TextEditingController {
 
   List<ImageData> extractImageData() => images;
 
-  void addImage(String imageUrl) {
-    final imageData = ImageData(imageUrl: imageUrl);
+  void addImage(String imageUrl, int cursorPosition) {
+    const imagePlaceholder = '￼';
+    final newText = text.substring(0, cursorPosition) + imagePlaceholder + text.substring(cursorPosition);
+
+    value = value.copyWith(text: newText);
+
+    final imageData = ImageData(
+      imageUrl: imageUrl,
+      position: cursorPosition,
+    );
     images.add(imageData);
     notifyListeners();
   }
 
   void removeImage(String imageId) {
-    images.removeWhere((img) => img.id == imageId);
+    final imageIndex = images.indexWhere((img) => img.id == imageId);
+    if (imageIndex != -1) {
+      final imageData = images[imageIndex];
+      const imagePlaceholder = '￼';
+
+      if (imageData.position < text.length && text[imageData.position] == imagePlaceholder) {
+        final newText = text.substring(0, imageData.position) + text.substring(imageData.position + 1);
+
+        images.removeAt(imageIndex);
+
+        for (var i = imageIndex; i < images.length; i++) {
+          if (images[i].position > imageData.position) {
+            images[i] = images[i].copyWith(position: images[i].position - 1);
+          }
+        }
+
+        value = value.copyWith(text: newText);
+      } else {
+        images.removeAt(imageIndex);
+      }
+    }
     notifyListeners();
   }
 
@@ -654,14 +822,66 @@ class RichTextController extends TextEditingController {
   void updateImageLink(String imageId, String? linkUrl) {
     final index = images.indexWhere((img) => img.id == imageId);
     if (index != -1) {
-      images[index] = images[index].copyWith(linkUrl: linkUrl);
+      final img = images[index];
+      final link = (linkUrl == null || linkUrl.isEmpty) ? null : linkUrl;
+      // Rebuild directly (not copyWith) so a null link actually clears it.
+      images[index] = ImageData(
+        id: img.id,
+        imageUrl: img.imageUrl,
+        position: img.position,
+        linkUrl: link,
+        width: img.width,
+        height: img.height,
+      );
       notifyListeners();
     }
+  }
+
+  /// The link currently set on the selected image, or null if none/unselected.
+  String? get selectedImageLink {
+    if (selectedImageId == null) return null;
+    for (final img in images) {
+      if (img.id == selectedImageId) return img.linkUrl;
+    }
+    return null;
   }
 
   void clearFormatting() {
     spans.clear();
     notifyListeners();
+  }
+
+  void selectImage(String imageId) {
+    selectedImageId = imageId;
+    notifyListeners();
+  }
+
+  void deselectImage() {
+    selectedImageId = null;
+    notifyListeners();
+  }
+
+  void resizeImage(String imageId, double width, double height) {
+    // Only enforce a minimum so the resize handle stays grabbable; no max
+    // limit — images use their natural/user-chosen dimensions.
+    const minSize = 28.0;
+
+    final clampedWidth = width < minSize ? minSize : width;
+    final clampedHeight = height < minSize ? minSize : height;
+
+    final index = images.indexWhere((img) => img.id == imageId);
+    if (index != -1) {
+      images[index] = images[index].copyWith(
+        width: clampedWidth,
+        height: clampedHeight,
+      );
+      notifyListeners();
+    }
+  }
+
+  double getMaxImageHeight() {
+    if (images.isEmpty) return 0;
+    return images.map((img) => img.height).reduce((a, b) => a > b ? a : b);
   }
 
   @override
@@ -671,40 +891,94 @@ class RichTextController extends TextEditingController {
     required bool withComposing,
   }) {
     final text = this.text;
-    if (spans.isEmpty) {
-      return TextSpan(text: text, style: style);
-    }
-
-    final children = <TextSpan>[];
+    const imagePlaceholder = '￼';
+    final children = <InlineSpan>[];
     var lastEnd = 0;
 
     final sortedSpans = [...spans]..sort((a, b) => a.start.compareTo(b.start));
 
+    for (int i = 0; i < text.length; i++) {
+      if (text[i] == imagePlaceholder) {
+        if (i > lastEnd) {
+          _addTextSpans(text.substring(lastEnd, i), lastEnd, style, sortedSpans, children);
+        }
+
+        final image = images.firstWhere(
+          (img) => img.position == i,
+          orElse: () => ImageData(imageUrl: ''),
+        );
+
+        if (image.imageUrl.isNotEmpty) {
+          final isSelected = selectedImageId == image.id;
+          children.add(
+            WidgetSpan(
+              // Align the image's top with the line top so the line height
+              // grows to the image's natural height (text flows below the
+              // image rather than overlapping it).
+              alignment: PlaceholderAlignment.top,
+              child: InlineImageWidget(
+                image: image,
+                isSelected: isSelected,
+                maxWidth: maxImageWidth,
+                onSelect: () => selectImage(image.id),
+                onDeselect: () => deselectImage(),
+                onResize: (width, height) => resizeImage(image.id, width, height),
+              ),
+            ),
+          );
+        }
+        lastEnd = i + 1;
+      }
+    }
+
+    if (lastEnd < text.length) {
+      _addTextSpans(text.substring(lastEnd), lastEnd, style, sortedSpans, children);
+    }
+
+    if (children.isEmpty) {
+      return TextSpan(text: text, style: style);
+    }
+
+    return TextSpan(children: children, style: style);
+  }
+
+  void _addTextSpans(
+    String textSegment,
+    int segmentStart,
+    TextStyle? style,
+    List<SpanData> sortedSpans,
+    List<InlineSpan> children,
+  ) {
+    final segmentEnd = segmentStart + textSegment.length;
+    var segmentLastEnd = 0;
+
     for (final span in sortedSpans) {
-      if (span.start > lastEnd) {
+      if (span.end <= segmentStart || span.start >= segmentEnd) continue;
+
+      final spanStartInSegment = max(0, span.start - segmentStart);
+      final spanEndInSegment = min(segmentEnd - segmentStart, span.end - segmentStart);
+
+      if (spanStartInSegment > segmentLastEnd) {
         children.add(TextSpan(
-          text: text.substring(lastEnd, span.start),
+          text: textSegment.substring(segmentLastEnd, spanStartInSegment),
           style: style,
         ));
       }
 
-      final spanEnd = span.end.clamp(span.start, text.length);
       children.add(TextSpan(
-        text: text.substring(span.start, spanEnd),
+        text: textSegment.substring(spanStartInSegment, spanEndInSegment),
         style: (style ?? const TextStyle()).merge(span.toTextStyle()),
       ));
 
-      lastEnd = span.end;
+      segmentLastEnd = spanEndInSegment;
     }
 
-    if (lastEnd < text.length) {
+    if (segmentLastEnd < segmentEnd - segmentStart) {
       children.add(TextSpan(
-        text: text.substring(lastEnd),
+        text: textSegment.substring(segmentLastEnd),
         style: style,
       ));
     }
-
-    return TextSpan(children: children, style: style);
   }
 }
 

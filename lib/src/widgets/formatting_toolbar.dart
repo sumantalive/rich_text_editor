@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../controllers/rich_text_controller.dart';
 import 'color_palette.dart';
 import 'custom_dropdown.dart';
-import 'image_url_dialog.dart';
+import 'image_link_dialog.dart';
 
 class FormattingToolbar extends StatefulWidget {
   final RichTextController controller;
@@ -86,25 +86,6 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
     super.dispose();
   }
 
-  void _applyFormatting(TextFormatting formatting) {
-    final selection = widget.controller.selection;
-
-    if (selection.start < selection.end) {
-      // Apply to selected text
-      widget.controller.applyToSelection(formatting, explicitSelection: selection);
-      // Restore selection after formatting
-      Future.microtask(() {
-        widget.controller.selection = selection;
-      });
-    } else {
-      // No selection - set active formatting
-      widget.controller.setActiveFormatting(formatting);
-    }
-
-    _currentFormattingNotifier.value = formatting;
-
-    widget.focusNode?.requestFocus();
-  }
 
   void _showColorPicker(bool isBackground, BuildContext buttonContext) {
     final RenderBox renderBox = buttonContext.findRenderObject() as RenderBox;
@@ -237,50 +218,70 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
     }
   }
 
-  void _changeAlignment(String newAlignment) {
-    final text = widget.controller.text;
-    final selection = widget.controller.selection;
-    int applyStart = selection.start;
-    int applyEnd = selection.end;
+  /// Adds/edits a hyperlink. If an image is currently selected, the link is
+  /// attached to that image; otherwise it is applied to the selected text.
+  /// With nothing selected, prompts the user to select something first.
+  void _editLink() {
+    final controller = widget.controller;
+    final selectedImageId = controller.selectedImageId;
 
-    if (applyStart >= applyEnd) {
-      applyStart = 0;
-      applyEnd = text.length;
-
-      for (int i = selection.start - 1; i >= 0; i--) {
-        if (text[i] == '\n') {
-          applyStart = i + 1;
-          break;
-        }
-      }
-
-      for (int i = selection.start; i < text.length; i++) {
-        if (text[i] == '\n') {
-          applyEnd = i;
-          break;
-        }
-      }
-
-      widget.controller.selection = TextSelection(baseOffset: applyStart, extentOffset: applyEnd);
+    if (selectedImageId != null) {
+      _showLinkDialog(
+        title: 'Add Image Link',
+        description: 'Enter the URL this image should link to:',
+        initialLink: controller.selectedImageLink,
+        onSaved: (url) => controller.updateImageLink(selectedImageId, url),
+      );
+      return;
     }
 
-    final currentFormatting = widget.controller.getFormattingAt(applyStart);
+    // Capture the selection now — showing the dialog moves focus and would
+    // otherwise collapse it before the user confirms.
+    final selection = controller.selection;
+    if (selection.isValid && selection.start < selection.end) {
+      _showLinkDialog(
+        title: 'Add Link',
+        description: 'Enter the URL for the selected text:',
+        initialLink: controller.getFormattingAt(selection.start).linkUrl,
+        onSaved: (url) {
+          controller.setSelectionLink(url, explicitSelection: selection);
+          _updateFormattingFromCursor();
+        },
+      );
+      return;
+    }
 
-    final formatting = TextFormatting(
-      bold: currentFormatting.bold,
-      italic: currentFormatting.italic,
-      underline: currentFormatting.underline,
-      strikethrough: currentFormatting.strikethrough,
-      textColor: currentFormatting.textColor,
-      highlightColor: currentFormatting.highlightColor,
-      fontSize: currentFormatting.fontSize,
-      fontFamily: currentFormatting.fontFamily,
-      alignment: newAlignment,
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Select some text or tap an image to add a link'),
+        duration: Duration(seconds: 2),
+      ),
     );
+  }
 
-    _applyFormatting(formatting);
+  void _showLinkDialog({
+    required String title,
+    required String description,
+    required String? initialLink,
+    required ValueChanged<String?> onSaved,
+  }) {
+    showDialog(
+      context: context,
+      builder: (_) => ImageLinkDialog(
+        title: title,
+        description: description,
+        initialLink: initialLink,
+        onLinkSaved: onSaved,
+      ),
+    );
+  }
+
+  void _changeAlignment(String newAlignment) {
+    // Alignment is a per-line (per-block) property in the block editor, so we
+    // delegate to the host instead of writing it onto text spans.
     _currentAlignmentNotifier.value = newAlignment;
     widget.onAlignmentChanged?.call(newAlignment);
+    widget.focusNode?.requestFocus();
   }
 
   @override
@@ -353,6 +354,11 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
                       icon: Icons.strikethrough_s,
                       isActive: currentFormatting.strikethrough,
                       onPressed: _toggleStrikethrough,
+                    ),
+                    _FormatButton(
+                      icon: Icons.link,
+                      isActive: currentFormatting.linkUrl != null,
+                      onPressed: _editLink,
                     ),
                     const SizedBox(width: 8),
                     Builder(
