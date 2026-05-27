@@ -373,6 +373,12 @@ class _BlockEditorState extends State<BlockEditor> {
         controller: block.controller,
         focusNode: block.focusNode,
         maxLines: null,
+        // The default strut forces a fixed font-based line height, which caps
+        // the line and stops a tall inline image (WidgetSpan) from growing it —
+        // the image would overflow and overlap the next line. Disabling the
+        // strut lets each line's height track its content, so a line holding an
+        // image grows to the image's height.
+        strutStyle: StrutStyle.disabled,
         textAlign: _align(block.alignment),
         textAlignVertical: TextAlignVertical.top,
         keyboardType: TextInputType.multiline,
