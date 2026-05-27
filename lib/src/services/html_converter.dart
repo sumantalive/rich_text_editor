@@ -285,42 +285,6 @@ class HtmlConverter {
     return _unescapeHtml(html).trim();
   }
 
-  static HtmlImportData parseHtmlFull(String htmlContent) {
-    final doc = html_parser.parse(htmlContent);
-    final text = StringBuffer();
-    final spans = <SpanData>[];
-    final images = <ImageData>[];
-    var alignment = 'left';
-
-    if (doc.body == null) {
-      return HtmlImportData(text: '', spans: [], images: [], alignment: 'left');
-    }
-
-    final divElements = doc.body!.querySelectorAll('div');
-    if (divElements.isNotEmpty) {
-      final firstDiv = divElements.first;
-      final style = firstDiv.attributes['style'] ?? '';
-      if (style.contains('text-align:')) {
-        final alignMatch = RegExp(r'text-align:\s*(\w+)').firstMatch(style);
-        if (alignMatch != null) {
-          alignment = alignMatch.group(1) ?? 'left';
-        }
-      }
-    }
-
-    _parseNode(doc.body!, text, spans, images, 0);
-
-    final finalText = text.toString().trim();
-    _adjustSpanOffsets(spans, finalText);
-
-    return HtmlImportData(
-      text: finalText,
-      spans: spans,
-      images: images,
-      alignment: alignment,
-    );
-  }
-
   static void _parseNode(
     html_dom.Node node,
     StringBuffer text,
@@ -570,18 +534,4 @@ class HtmlConverter {
   static String _generateId() {
     return DateTime.now().millisecondsSinceEpoch.toString() + (DateTime.now().microsecond % 1000).toString();
   }
-}
-
-class HtmlImportData {
-  final String text;
-  final List<SpanData> spans;
-  final List<ImageData> images;
-  final String alignment;
-
-  HtmlImportData({
-    required this.text,
-    required this.spans,
-    required this.images,
-    required this.alignment,
-  });
 }

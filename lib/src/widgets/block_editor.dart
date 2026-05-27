@@ -192,7 +192,12 @@ class BlockEditorController extends ChangeNotifier {
 
   /// Returns spans overlapping [start, end), clipped to that range and shifted
   /// left by [shift] (so the result is relative to the new block's text).
-  List<SpanData> _clipSpans(List<SpanData> spans, int start, int end, int shift) {
+  List<SpanData> _clipSpans(
+    List<SpanData> spans,
+    int start,
+    int end,
+    int shift,
+  ) {
     final out = <SpanData>[];
     for (final s in spans) {
       final ns = s.start.clamp(start, end);
@@ -202,7 +207,12 @@ class BlockEditorController extends ChangeNotifier {
     return out;
   }
 
-  List<ImageData> _clipImages(List<ImageData> images, int start, int end, int shift) {
+  List<ImageData> _clipImages(
+    List<ImageData> images,
+    int start,
+    int end,
+    int shift,
+  ) {
     final out = <ImageData>[];
     for (final img in images) {
       if (img.position >= start && img.position < end) {
@@ -232,7 +242,10 @@ class BlockEditorController extends ChangeNotifier {
   void insertImage(String url) {
     final offset = activeController.selection.baseOffset;
     // addImage notifies the block's listener, which captures the snapshot.
-    activeController.addImage(url, offset < 0 ? activeController.text.length : offset);
+    activeController.addImage(
+      url,
+      offset < 0 ? activeController.text.length : offset,
+    );
   }
 
   // ---- load / snapshot ------------------------------------------------------
@@ -261,12 +274,14 @@ class BlockEditorController extends ChangeNotifier {
   }
 
   List<BlockData> toBlockData() => _blocks
-      .map((b) => BlockData(
-            text: b.text,
-            spans: b.spans.map((s) => s.copyWith()).toList(),
-            images: b.images.map((i) => i.copyWith()).toList(),
-            alignment: b.alignment,
-          ))
+      .map(
+        (b) => BlockData(
+          text: b.text,
+          spans: b.spans.map((s) => s.copyWith()).toList(),
+          images: b.images.map((i) => i.copyWith()).toList(),
+          alignment: b.alignment,
+        ),
+      )
       .toList();
 
   @override
@@ -329,8 +344,9 @@ class _BlockEditorState extends State<BlockEditor> {
     if (blocks.isEmpty) return;
     final last = blocks.last;
     last.focusNode.requestFocus();
-    last.controller.selection =
-        TextSelection.collapsed(offset: last.controller.text.length);
+    last.controller.selection = TextSelection.collapsed(
+      offset: last.controller.text.length,
+    );
   }
 
   @override
@@ -338,15 +354,13 @@ class _BlockEditorState extends State<BlockEditor> {
     final blocks = widget.controller.blocks;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxImageWidth =
-            (constraints.maxWidth - 24).clamp(0.0, double.infinity);
+        final maxImageWidth = (constraints.maxWidth - 24).clamp(
+          0.0,
+          double.infinity,
+        );
         return SingleChildScrollView(
-          // Always allow the board to scroll, even when content is shorter
-          // than the viewport (so long documents/tall images are reachable).
           physics: const AlwaysScrollableScrollPhysics(),
           child: ConstrainedBox(
-            // Make the editable surface fill the box height so the tap area
-            // below the last line is part of the editor, not dead space.
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -373,11 +387,6 @@ class _BlockEditorState extends State<BlockEditor> {
         controller: block.controller,
         focusNode: block.focusNode,
         maxLines: null,
-        // The default strut forces a fixed font-based line height, which caps
-        // the line and stops a tall inline image (WidgetSpan) from growing it —
-        // the image would overflow and overlap the next line. Disabling the
-        // strut lets each line's height track its content, so a line holding an
-        // image grows to the image's height.
         strutStyle: StrutStyle.disabled,
         textAlign: _align(block.alignment),
         textAlignVertical: TextAlignVertical.top,
@@ -386,7 +395,10 @@ class _BlockEditorState extends State<BlockEditor> {
           isDense: true,
           border: InputBorder.none,
           hintText: isFirst ? widget.hintText : null,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 4,
+          ),
         ),
       ),
     );
