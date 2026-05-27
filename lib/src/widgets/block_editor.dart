@@ -384,21 +384,23 @@ class _BlockEditorState extends State<BlockEditor> {
     return Padding(
       key: ValueKey(block.id),
       padding: const EdgeInsets.symmetric(vertical: 1),
-      child: TextField(
-        controller: block.controller,
-        focusNode: block.focusNode,
-        maxLines: null,
-        strutStyle: StrutStyle.disabled,
-        textAlign: _align(block.alignment),
-        textAlignVertical: TextAlignVertical.top,
-        keyboardType: TextInputType.multiline,
-        decoration: InputDecoration(
-          isDense: true,
-          border: InputBorder.none,
-          hintText: isFirst ? widget.hintText : null,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 4,
+      child: ExcludeSemantics(
+        child: TextField(
+          controller: block.controller,
+          focusNode: block.focusNode,
+          maxLines: null,
+          strutStyle: StrutStyle.disabled,
+          textAlign: _align(block.alignment),
+          textAlignVertical: TextAlignVertical.top,
+          keyboardType: TextInputType.multiline,
+          decoration: InputDecoration(
+            isDense: true,
+            border: InputBorder.none,
+            hintText: isFirst ? widget.hintText : null,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 4,
+            ),
           ),
         ),
       ),
