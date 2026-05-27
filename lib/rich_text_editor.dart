@@ -10,13 +10,13 @@ export 'src/models/image_model.dart';
 
 // Services
 export 'src/services/html_converter.dart';
-export 'src/services/undo_redo_service.dart';
 
 // Main Widgets
 export 'src/widgets/compose_screen.dart';
 export 'src/widgets/custom_button.dart';
 export 'src/widgets/custom_dropdown.dart';
 export 'src/widgets/formatting_toolbar.dart';
-export 'src/widgets/image_preview_dialog.dart';
 export 'src/widgets/image_link_dialog.dart';
 export 'src/widgets/html_import_dialog.dart';
+export 'src/models/block_data.dart';
+export 'src/widgets/block_editor.dart';
