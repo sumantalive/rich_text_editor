@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../controllers/rich_text_controller.dart';
 import 'color_palette.dart';
 import 'custom_dropdown.dart';
+import 'image_link_dialog.dart';
 
 class FormattingToolbar extends StatefulWidget {
   final RichTextController controller;
@@ -217,6 +218,64 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
     }
   }
 
+  /// Adds/edits a hyperlink. If an image is currently selected, the link is
+  /// attached to that image; otherwise it is applied to the selected text.
+  /// With nothing selected, prompts the user to select something first.
+  void _editLink() {
+    final controller = widget.controller;
+    final selectedImageId = controller.selectedImageId;
+
+    if (selectedImageId != null) {
+      _showLinkDialog(
+        title: 'Add Image Link',
+        description: 'Enter the URL this image should link to:',
+        initialLink: controller.selectedImageLink,
+        onSaved: (url) => controller.updateImageLink(selectedImageId, url),
+      );
+      return;
+    }
+
+    // Capture the selection now — showing the dialog moves focus and would
+    // otherwise collapse it before the user confirms.
+    final selection = controller.selection;
+    if (selection.isValid && selection.start < selection.end) {
+      _showLinkDialog(
+        title: 'Add Link',
+        description: 'Enter the URL for the selected text:',
+        initialLink: controller.getFormattingAt(selection.start).linkUrl,
+        onSaved: (url) {
+          controller.setSelectionLink(url, explicitSelection: selection);
+          _updateFormattingFromCursor();
+        },
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Select some text or tap an image to add a link'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showLinkDialog({
+    required String title,
+    required String description,
+    required String? initialLink,
+    required ValueChanged<String?> onSaved,
+  }) {
+    showDialog(
+      context: context,
+      builder: (_) => ImageLinkDialog(
+        title: title,
+        description: description,
+        initialLink: initialLink,
+        onLinkSaved: onSaved,
+      ),
+    );
+  }
+
   void _changeAlignment(String newAlignment) {
     // Alignment is a per-line (per-block) property in the block editor, so we
     // delegate to the host instead of writing it onto text spans.
@@ -295,6 +354,11 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
                       icon: Icons.strikethrough_s,
                       isActive: currentFormatting.strikethrough,
                       onPressed: _toggleStrikethrough,
+                    ),
+                    _FormatButton(
+                      icon: Icons.link,
+                      isActive: currentFormatting.linkUrl != null,
+                      onPressed: _editLink,
                     ),
                     const SizedBox(width: 8),
                     Builder(

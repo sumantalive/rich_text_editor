@@ -509,6 +509,79 @@ class RichTextController extends TextEditingController {
     }
   }
 
+  /// Sets the hyperlink on the current selection, or clears it when [url] is
+  /// null/empty. Spans are split at the selection boundaries so only the
+  /// selected text is affected. Unlike [applyPropertyToSelection], this can
+  /// also remove a link (the `??` merge there can never clear a value).
+  void setSelectionLink(String? url, {TextSelection? explicitSelection}) {
+    final selection = explicitSelection ?? this.selection;
+    if (selection.start >= selection.end) return;
+    final link = (url == null || url.isEmpty) ? null : url;
+
+    final selStart = selection.start;
+    final selEnd = selection.end;
+    final newSpans = <SpanData>[];
+
+    for (final span in spans) {
+      if (span.end <= selStart || span.start >= selEnd) {
+        newSpans.add(span); // no overlap
+        continue;
+      }
+      if (span.start < selStart && span.end > selEnd) {
+        newSpans.add(span.copyWith(end: selStart));
+        newSpans.add(_withLink(span.copyWith(start: selStart, end: selEnd), link));
+        newSpans.add(span.copyWith(start: selEnd));
+      } else if (span.start < selStart) {
+        newSpans.add(span.copyWith(end: selStart));
+        newSpans.add(_withLink(span.copyWith(start: selStart), link));
+      } else if (span.end > selEnd) {
+        newSpans.add(_withLink(span.copyWith(end: selEnd), link));
+        newSpans.add(span.copyWith(start: selEnd));
+      } else {
+        newSpans.add(_withLink(span, link));
+      }
+    }
+
+    // Fill selected gaps that had no span (only needed when setting a link).
+    if (link != null) {
+      final covering = newSpans
+          .where((s) => s.start < selEnd && s.end > selStart)
+          .toList()
+        ..sort((a, b) => a.start.compareTo(b.start));
+      var pos = selStart;
+      for (final s in covering) {
+        if (s.start > pos) {
+          newSpans.add(SpanData(start: pos, end: s.start, linkUrl: link));
+        }
+        if (s.end > pos) pos = s.end;
+      }
+      if (pos < selEnd) {
+        newSpans.add(SpanData(start: pos, end: selEnd, linkUrl: link));
+      }
+    }
+
+    spans = newSpans;
+    spans.sort((a, b) => a.start.compareTo(b.start));
+    notifyListeners();
+  }
+
+  /// Returns a copy of [span] with its [SpanData.linkUrl] set to [url],
+  /// including clearing it to null (which `copyWith` cannot do).
+  SpanData _withLink(SpanData span, String? url) => SpanData(
+        start: span.start,
+        end: span.end,
+        bold: span.bold,
+        italic: span.italic,
+        underline: span.underline,
+        strikethrough: span.strikethrough,
+        textColor: span.textColor,
+        highlightColor: span.highlightColor,
+        fontSize: span.fontSize,
+        fontFamily: span.fontFamily,
+        alignment: span.alignment,
+        linkUrl: url,
+      );
+
   void togglePropertyInSelection(String property, {TextSelection? explicitSelection}) {
     final selection = explicitSelection ?? this.selection;
     if (selection.start >= selection.end) return;
@@ -749,9 +822,28 @@ class RichTextController extends TextEditingController {
   void updateImageLink(String imageId, String? linkUrl) {
     final index = images.indexWhere((img) => img.id == imageId);
     if (index != -1) {
-      images[index] = images[index].copyWith(linkUrl: linkUrl);
+      final img = images[index];
+      final link = (linkUrl == null || linkUrl.isEmpty) ? null : linkUrl;
+      // Rebuild directly (not copyWith) so a null link actually clears it.
+      images[index] = ImageData(
+        id: img.id,
+        imageUrl: img.imageUrl,
+        position: img.position,
+        linkUrl: link,
+        width: img.width,
+        height: img.height,
+      );
       notifyListeners();
     }
+  }
+
+  /// The link currently set on the selected image, or null if none/unselected.
+  String? get selectedImageLink {
+    if (selectedImageId == null) return null;
+    for (final img in images) {
+      if (img.id == selectedImageId) return img.linkUrl;
+    }
+    return null;
   }
 
   void clearFormatting() {

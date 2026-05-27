@@ -5,10 +5,17 @@ class ImageLinkDialog extends StatefulWidget {
   final String? initialLink;
   final ValueChanged<String?> onLinkSaved;
 
+  /// Dialog heading; defaults to image-link wording but can be overridden so
+  /// the same dialog can add a link to selected text.
+  final String title;
+  final String description;
+
   const ImageLinkDialog({
     super.key,
     this.initialLink,
     required this.onLinkSaved,
+    this.title = 'Add Image Link',
+    this.description = 'Enter the URL this image should link to:',
   });
 
   @override
@@ -55,14 +62,14 @@ class _ImageLinkDialogState extends State<ImageLinkDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add Image Link'),
+      title: Text(widget.title),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Enter the URL this image should link to:',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+          Text(
+            widget.description,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
           const SizedBox(height: 12),
           TextField(
