@@ -6,8 +6,8 @@ class InlineImageWidget extends StatefulWidget {
   final bool isSelected;
 
   /// Largest width the image may take so it never overflows the editor field
-  /// horizontally. The image's height grows with it (the field grows
-  /// vertically to fit, like typing more text).
+  /// horizontally. The image's height grows with it and the surrounding text
+  /// line grows to fit (the field grows vertically, like typing more text).
   final double maxWidth;
   final VoidCallback onSelect;
   final VoidCallback onDeselect;

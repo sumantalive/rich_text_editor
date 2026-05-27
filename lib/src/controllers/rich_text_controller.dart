@@ -821,8 +821,8 @@ class RichTextController extends TextEditingController {
           children.add(
             WidgetSpan(
               // Align the image's top with the line top so the line height
-              // grows to the image's height (image flows downward and stays
-              // inside the editor) instead of centering and overflowing above.
+              // grows to the image's natural height (text flows below the
+              // image rather than overlapping it).
               alignment: PlaceholderAlignment.top,
               child: InlineImageWidget(
                 image: image,
