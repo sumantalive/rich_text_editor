@@ -35,7 +35,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
   // the last entry is always the current document.
   final List<List<BlockData>> _undoStack = [];
   final List<List<BlockData>> _redoStack = [];
-  static const int _maxHistory = 30;
+  static const int _maxHistory = 50;
   bool _isRestoringState = false;
 
   @override
