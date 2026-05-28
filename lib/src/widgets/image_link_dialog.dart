@@ -103,15 +103,18 @@ class _ImageLinkDialogState extends State<ImageLinkDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: const Text('Cancel',style: TextStyle(color: Colors.black)),
         ),
-        TextButton(
-          onPressed: () {
-            _linkController.clear();
-            widget.onLinkSaved(null);
-            Navigator.pop(context);
-          },
-          child: const Text('Remove Link'),
+        Visibility(
+          visible:_linkController.text.isNotEmpty,
+          child: TextButton(
+            onPressed: () {
+              _linkController.clear();
+              widget.onLinkSaved(null);
+              Navigator.pop(context);
+            },
+            child: const Text('Remove Link',style: TextStyle(color: Colors.black)),
+          ),
         ),
         CustomButton(
           label: 'Save Link',
