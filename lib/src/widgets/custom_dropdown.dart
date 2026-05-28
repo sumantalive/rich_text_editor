@@ -155,7 +155,7 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>> {
         return Container(
           key: _key,
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[300]!),
+            border: Border.all(color: Colors.black),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Material(

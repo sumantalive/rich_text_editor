@@ -294,7 +294,7 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
           valueListenable: _currentAlignmentNotifier,
           builder: (context, currentAlignment, _) {
             return Container(
-              color: Colors.grey[100],
+              // color: Colors.grey[100],
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -446,9 +446,9 @@ class _FormatButton extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
-        color: isActive ? Colors.blue : Colors.white,
+        color: isActive ? Colors.black : Colors.white,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.grey),
+        border: Border.all(color: Colors.black),
       ),
       child: IconButton(
         icon: Icon(icon, color: isActive ? Colors.white : Colors.black),
@@ -477,7 +477,7 @@ class _ColorButton extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
+        border: Border.all(color: Colors.black),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Material(
@@ -485,7 +485,7 @@ class _ColorButton extends StatelessWidget {
         child: InkWell(
           onTap: onPressed,
           child: Padding(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(8),
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -523,7 +523,7 @@ class _UndoRedoButton extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
+        border: Border.all(color:Colors.black),
         borderRadius: BorderRadius.circular(4),
       ),
       child: IconButton(

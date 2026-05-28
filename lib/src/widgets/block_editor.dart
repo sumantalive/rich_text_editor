@@ -71,6 +71,17 @@ class BlockEditorController extends ChangeNotifier {
   /// entered via a soft keyboard/IME (hardware Enter is caught in [_onKey]
   /// before any text is inserted), so split at it. Otherwise just notify.
   void _onBlockChanged(EditorBlock block) {
+    // Safety net for the active-block pointer. The focus path
+    // ([_onFocusChange]) is the primary way [_activeBlock] gets updated, but
+    // it can lag: focus changes go through a microtask, so on the very first
+    // tap into a new block the field updates its selection (firing this
+    // listener) BEFORE the focus listener fires. If the user is fast, they can
+    // tap a toolbar button while the toolbar is still bound to the previous
+    // block — and bold/link/etc. then apply to the wrong block (e.g. "Dear
+    // Sir" getting bolded when the user meant to bold a word in the next
+    // paragraph). Promoting here whenever the firing block holds focus closes
+    // that window.
+    _promoteIfFocused(block);
     if (block.text.contains('\n')) {
       Future.microtask(() {
         if (!_blocks.contains(block)) return;
@@ -84,6 +95,10 @@ class BlockEditorController extends ChangeNotifier {
   }
 
   void _onFocusChange(EditorBlock block) {
+    _promoteIfFocused(block);
+  }
+
+  void _promoteIfFocused(EditorBlock block) {
     if (block.focusNode.hasFocus && !identical(_activeBlock, block)) {
       _activeBlock = block;
       notifyListeners();
