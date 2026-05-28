@@ -310,6 +310,12 @@ class _ComposeScreenState extends State<ComposeScreen> {
                       return FormattingToolbar(
                         key: ValueKey(active.id),
                         controller: active.controller,
+                        // Resolved at action time so toolbar buttons always hit
+                        // the block that currently has focus, even in the brief
+                        // window where this widget still binds [controller] to
+                        // the previously active block during a focus transition.
+                        resolveActiveController: () =>
+                            _blockController.activeBlock.controller,
                         focusNode: active.focusNode,
                         initialAlignment: active.alignment,
                         canUndo: canUndo,

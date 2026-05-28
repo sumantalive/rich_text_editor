@@ -73,15 +73,20 @@ class BlockEditorController extends ChangeNotifier {
   void _onBlockChanged(EditorBlock block) {
     // Safety net for the active-block pointer. The focus path
     // ([_onFocusChange]) is the primary way [_activeBlock] gets updated, but
-    // it can lag: focus changes go through a microtask, so on the very first
-    // tap into a new block the field updates its selection (firing this
-    // listener) BEFORE the focus listener fires. If the user is fast, they can
-    // tap a toolbar button while the toolbar is still bound to the previous
-    // block — and bold/link/etc. then apply to the wrong block (e.g. "Dear
-    // Sir" getting bolded when the user meant to bold a word in the next
-    // paragraph). Promoting here whenever the firing block holds focus closes
-    // that window.
+    // it lags by a microtask: when the user taps into a new block, the field
+    // synchronously updates its selection (firing this listener) BEFORE
+    // Flutter's FocusManager applies the focus change. If we promoted only on
+    // the sync check, hasFocus would still be false here on that very first
+    // tap and the toolbar would stay bound to the previous block — so bold /
+    // link / colour etc. would land on the wrong paragraph (e.g. "Dear Sir"
+    // getting bolded when the user meant to bold a word in the next block).
+    // The microtask-deferred re-check runs AFTER FocusManager has applied the
+    // pending focus change, catching that first-tap window.
     _promoteIfFocused(block);
+    Future.microtask(() {
+      if (!_blocks.contains(block)) return;
+      _promoteIfFocused(block);
+    });
     if (block.text.contains('\n')) {
       Future.microtask(() {
         if (!_blocks.contains(block)) return;

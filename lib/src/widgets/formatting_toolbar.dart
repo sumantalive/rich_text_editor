@@ -16,6 +16,16 @@ class FormattingToolbar extends StatefulWidget {
   final bool canRedo;
   final void Function()? onImageAdded;
 
+  /// Returns the controller toolbar actions should write to, resolved at the
+  /// moment of the action. The block editor host uses this to always target
+  /// the currently focused block: between the user tapping into a different
+  /// block and the parent rebuilding the toolbar with a fresh [controller],
+  /// there is a brief frame where [controller] still points at the previously
+  /// active block — without this hook, bold/link/etc. land on the wrong
+  /// paragraph during that window. Falls back to [controller] when not
+  /// provided so standalone uses of the toolbar are unaffected.
+  final RichTextController Function()? resolveActiveController;
+
   const FormattingToolbar({
     super.key,
     required this.controller,
@@ -28,6 +38,7 @@ class FormattingToolbar extends StatefulWidget {
     this.canUndo = false,
     this.canRedo = false,
     this.onImageAdded,
+    this.resolveActiveController,
   });
 
   @override
@@ -76,6 +87,13 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
 
     _updateFormattingFromCursor();
   }
+
+  /// The controller a toolbar action should target. Resolved at action time
+  /// (not at widget-build time) so we always hit the field the user is
+  /// currently editing, even if [widget.controller] still points at the
+  /// previously active block because the parent hasn't rebuilt yet.
+  RichTextController get _actionController =>
+      widget.resolveActiveController?.call() ?? widget.controller;
 
   @override
   void dispose() {
@@ -129,45 +147,48 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
   }
 
   void _applyColor(int color, bool isBackground) {
-    final selection = widget.controller.selection;
+    final controller = _actionController;
+    final selection = controller.selection;
     final formatting = isBackground
         ? TextFormatting(highlightColor: color)
         : TextFormatting(textColor: color);
 
     if (selection.start < selection.end) {
-      widget.controller.applyPropertyToSelection(formatting);
+      controller.applyPropertyToSelection(formatting);
       _updateFormattingFromCursor();
     } else {
       final newFormatting = isBackground
-          ? widget.controller.activeFormatting.copyWith(highlightColor: color)
-          : widget.controller.activeFormatting.copyWith(textColor: color);
-      widget.controller.setActiveFormatting(newFormatting);
+          ? controller.activeFormatting.copyWith(highlightColor: color)
+          : controller.activeFormatting.copyWith(textColor: color);
+      controller.setActiveFormatting(newFormatting);
       _currentFormattingNotifier.value = newFormatting;
     }
   }
 
   void _changeFontSize(double size) {
-    final selection = widget.controller.selection;
+    final controller = _actionController;
+    final selection = controller.selection;
     if (selection.start < selection.end) {
       final formatting = TextFormatting(fontSize: size);
-      widget.controller.applyPropertyToSelection(formatting);
+      controller.applyPropertyToSelection(formatting);
       _updateFormattingFromCursor();
     } else {
-      final newFormatting = widget.controller.activeFormatting.copyWith(fontSize: size);
-      widget.controller.setActiveFormatting(newFormatting);
+      final newFormatting = controller.activeFormatting.copyWith(fontSize: size);
+      controller.setActiveFormatting(newFormatting);
       _currentFormattingNotifier.value = newFormatting;
     }
   }
 
   void _changeFontFamily(String family) {
-    final selection = widget.controller.selection;
+    final controller = _actionController;
+    final selection = controller.selection;
     if (selection.start < selection.end) {
       final formatting = TextFormatting(fontFamily: family);
-      widget.controller.applyPropertyToSelection(formatting);
+      controller.applyPropertyToSelection(formatting);
       _updateFormattingFromCursor();
     } else {
-      final newFormatting = widget.controller.activeFormatting.copyWith(fontFamily: family);
-      widget.controller.setActiveFormatting(newFormatting);
+      final newFormatting = controller.activeFormatting.copyWith(fontFamily: family);
+      controller.setActiveFormatting(newFormatting);
       _currentFormattingNotifier.value = newFormatting;
     }
   }
@@ -175,46 +196,50 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
 
 
   void _toggleBold() {
-    final selection = widget.controller.selection;
+    final controller = _actionController;
+    final selection = controller.selection;
     if (selection.start < selection.end) {
-      widget.controller.togglePropertyInSelection('bold');
+      controller.togglePropertyInSelection('bold');
       _updateFormattingFromCursor();
     } else {
-      widget.controller.toggleActiveFormatting('bold');
-      _currentFormattingNotifier.value = widget.controller.activeFormatting;
+      controller.toggleActiveFormatting('bold');
+      _currentFormattingNotifier.value = controller.activeFormatting;
     }
   }
 
   void _toggleItalic() {
-    final selection = widget.controller.selection;
+    final controller = _actionController;
+    final selection = controller.selection;
     if (selection.start < selection.end) {
-      widget.controller.togglePropertyInSelection('italic');
+      controller.togglePropertyInSelection('italic');
       _updateFormattingFromCursor();
     } else {
-      widget.controller.toggleActiveFormatting('italic');
-      _currentFormattingNotifier.value = widget.controller.activeFormatting;
+      controller.toggleActiveFormatting('italic');
+      _currentFormattingNotifier.value = controller.activeFormatting;
     }
   }
 
   void _toggleUnderline() {
-    final selection = widget.controller.selection;
+    final controller = _actionController;
+    final selection = controller.selection;
     if (selection.start < selection.end) {
-      widget.controller.togglePropertyInSelection('underline');
+      controller.togglePropertyInSelection('underline');
       _updateFormattingFromCursor();
     } else {
-      widget.controller.toggleActiveFormatting('underline');
-      _currentFormattingNotifier.value = widget.controller.activeFormatting;
+      controller.toggleActiveFormatting('underline');
+      _currentFormattingNotifier.value = controller.activeFormatting;
     }
   }
 
   void _toggleStrikethrough() {
-    final selection = widget.controller.selection;
+    final controller = _actionController;
+    final selection = controller.selection;
     if (selection.start < selection.end) {
-      widget.controller.togglePropertyInSelection('strikethrough');
+      controller.togglePropertyInSelection('strikethrough');
       _updateFormattingFromCursor();
     } else {
-      widget.controller.toggleActiveFormatting('strikethrough');
-      _currentFormattingNotifier.value = widget.controller.activeFormatting;
+      controller.toggleActiveFormatting('strikethrough');
+      _currentFormattingNotifier.value = controller.activeFormatting;
     }
   }
 
@@ -222,7 +247,7 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
   /// attached to that image; otherwise it is applied to the selected text.
   /// With nothing selected, prompts the user to select something first.
   void _editLink() {
-    final controller = widget.controller;
+    final controller = _actionController;
     final selectedImageId = controller.selectedImageId;
 
     if (selectedImageId != null) {
