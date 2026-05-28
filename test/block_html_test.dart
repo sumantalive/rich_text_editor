@@ -40,5 +40,35 @@ void main() {
       final blocks = HtmlConverter.parseHtmlToBlocks(html);
       expect(blocks.any((b) => b.text == 'hi' && b.alignment == 'center'), isTrue);
     });
+
+    test('preserves trailing and consecutive whitespace via pre-wrap', () {
+      final blocks = [
+        BlockData(text: 'hello   ', alignment: 'right'),
+        BlockData(text: 'a  b  c', alignment: 'left'),
+      ];
+      final html = HtmlConverter.toHtmlFromBlocks(blocks);
+
+      // Per-block pre-wrap keeps trailing/inner whitespace visible in the
+      // rendered HTML (browsers collapse it otherwise).
+      expect(html.contains('white-space: pre-wrap'), isTrue);
+
+      final reparsed = HtmlConverter.parseHtmlToBlocks(html);
+      expect(reparsed[0].text, 'hello   ');
+      expect(reparsed[1].text, 'a  b  c');
+    });
+
+    test('preserves blank lines between content blocks', () {
+      final blocks = [
+        BlockData(text: 'first', alignment: 'left'),
+        BlockData(text: '', alignment: 'left'),
+        BlockData(text: '', alignment: 'left'),
+        BlockData(text: 'last', alignment: 'left'),
+      ];
+      final html = HtmlConverter.toHtmlFromBlocks(blocks);
+      final reparsed = HtmlConverter.parseHtmlToBlocks(html);
+
+      expect(reparsed.map((b) => b.text).toList(),
+          ['first', '', '', 'last']);
+    });
   });
 }

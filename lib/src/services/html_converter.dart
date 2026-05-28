@@ -8,11 +8,21 @@ class HtmlConverter {
   /// Serializes a list of blocks to Gmail-style HTML: one `<div>` per line,
   /// each carrying its own `text-align`, with inline formatting, links and
   /// natural-size images. Empty lines become `<div><br></div>`.
+  ///
+  /// `white-space: pre-wrap` is written on every block so the rendered HTML
+  /// preserves what the user typed: runs of spaces stay as multiple spaces,
+  /// trailing whitespace at the end of a line stays visible, and the line
+  /// still wraps at the container width. Without this, the browser collapses
+  /// consecutive spaces and trims trailing whitespace per the HTML default,
+  /// so a paragraph the user right-aligned and padded with spaces would lose
+  /// that padding on export.
   static String toHtmlFromBlocks(List<BlockData> blocks) {
     if (blocks.isEmpty) return '';
     final buffer = StringBuffer();
     for (final block in blocks) {
-      buffer.write('<div style="text-align: ${block.alignment};">');
+      buffer.write(
+        '<div style="text-align: ${block.alignment}; white-space: pre-wrap;">',
+      );
       if (block.text.isEmpty && block.images.isEmpty) {
         buffer.write('<br>');
       } else {
@@ -159,7 +169,8 @@ class HtmlConverter {
     if (text.isEmpty && images.isEmpty) return '';
 
     final buffer = StringBuffer();
-    buffer.write('<div style="text-align: $alignment;">');
+    // See [toHtmlFromBlocks] for why pre-wrap is needed.
+    buffer.write('<div style="text-align: $alignment; white-space: pre-wrap;">');
 
     if (text.isEmpty) {
       buffer.write('</div>');
