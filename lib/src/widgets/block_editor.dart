@@ -369,7 +369,7 @@ class _BlockEditorState extends State<BlockEditor> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (var i = 0; i < blocks.length; i++)
-                    _buildBlock(blocks[i], i == 0, maxImageWidth),
+                    _buildBlock(blocks[i], i == 0 && blocks.length==1 && blocks.first.controller.text.isEmpty, maxImageWidth),
                 ],
               ),
             ),
