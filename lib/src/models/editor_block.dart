@@ -26,6 +26,7 @@ class EditorBlock {
         controller = RichTextController(),
         focusNode = FocusNode() {
     controller.blockAlignment = alignment;
+    controller.focusNode = focusNode;
     if (text.isNotEmpty || (spans?.isNotEmpty ?? false) || (images?.isNotEmpty ?? false)) {
       controller.setContent(text: text, spans: spans, images: images);
     }

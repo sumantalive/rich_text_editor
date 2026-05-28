@@ -129,6 +129,13 @@ class RichTextController extends TextEditingController {
   TextFormatting _activeFormatting = TextFormatting();
   String? selectedImageId;
 
+  /// The [FocusNode] of the [TextField] this controller drives. Set by the
+  /// owning block so taps on inline images (which the image's gesture detector
+  /// absorbs before the field can see them) can still move keyboard focus to
+  /// this field — otherwise the toolbar stays bound to whichever block was
+  /// active before, and link/style buttons act on the wrong block.
+  FocusNode? focusNode;
+
   /// Maximum width an inline image may occupy, in logical pixels. Set by the
   /// editor field from its measured content width so images never overflow it
   /// horizontally. Defaults to unbounded until the field reports its size.
@@ -853,11 +860,18 @@ class RichTextController extends TextEditingController {
 
   void selectImage(String imageId) {
     selectedImageId = imageId;
+    // Tapping an image is absorbed by its gesture detector, so the field never
+    // sees the tap and the block's focus doesn't change. Pull focus here so the
+    // block-editor host marks this block as active and the toolbar rebinds to
+    // it — without this, link/style/etc. buttons would act on the previously
+    // active block instead of the one whose image was just tapped.
+    focusNode?.requestFocus();
     notifyListeners();
   }
 
   void deselectImage() {
     selectedImageId = null;
+    focusNode?.requestFocus();
     notifyListeners();
   }
 
