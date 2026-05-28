@@ -41,14 +41,18 @@ class _ImageUrlDialogState extends State<ImageUrlDialog> {
     final url = _urlController.text.trim();
     if (url.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter an image URL')),
+        const SnackBar(
+            backgroundColor: Colors.red,
+            content: Text('Please enter an image URL')),
       );
       return;
     }
 
     if (!_isValidUrl(url)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid image URL (http:// or https://)')),
+        const SnackBar(
+            backgroundColor: Colors.red,
+            content: Text('Please enter a valid image URL (http:// or https://)')),
       );
       return;
     }

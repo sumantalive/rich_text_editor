@@ -48,13 +48,16 @@ class _ImageLinkDialogState extends State<ImageLinkDialog> {
   }
 
   void _saveLink() {
-    final link = _linkController.text.trim();
+    String link = _linkController.text.trim();
+    if (link.isNotEmpty && !link.startsWith('http://') && !link.startsWith('https://')) {
+      link = 'https://$link';
+    }
     if (link.isEmpty || _isValidUrl(link)) {
       widget.onLinkSaved(link.isEmpty ? null : link);
       Navigator.pop(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid URL (http:// or https://)')),
+        const SnackBar(content: Text('Please enter a valid URL')),
       );
     }
   }
@@ -72,26 +75,28 @@ class _ImageLinkDialogState extends State<ImageLinkDialog> {
             style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _linkController,
-            decoration: InputDecoration(
-              hintText: 'https://example.com',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+          ExcludeSemantics(
+            child: TextField(
+              controller: _linkController,
+              decoration: InputDecoration(
+                hintText: 'https://example.com',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: const EdgeInsets.all(12),
+                suffixIcon: _linkController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _linkController.clear();
+                          setState(() {});
+                        },
+                      )
+                    : null,
               ),
-              contentPadding: const EdgeInsets.all(12),
-              suffixIcon: _linkController.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _linkController.clear();
-                        setState(() {});
-                      },
-                    )
-                  : null,
+              onChanged: (value) => setState(() {}),
+              onSubmitted: (_) => _saveLink(),
             ),
-            onChanged: (value) => setState(() {}),
-            onSubmitted: (_) => _saveLink(),
           ),
         ],
       ),

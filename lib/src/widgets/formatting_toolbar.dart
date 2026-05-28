@@ -253,6 +253,7 @@ class _FormattingToolbarState extends State<FormattingToolbar> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
+        backgroundColor: Colors.red,
         content: Text('Select some text or tap an image to add a link'),
         duration: Duration(seconds: 2),
       ),
