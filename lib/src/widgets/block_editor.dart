@@ -319,10 +319,15 @@ class BlockEditor extends StatefulWidget {
   final BlockEditorController controller;
   final String hintText;
 
+  /// Renders the content read-only: text isn't editable and inline images
+  /// can't be selected/resized. Scrolling still works.
+  final bool readOnly;
+
   const BlockEditor({
     super.key,
     required this.controller,
     this.hintText = 'Write message...',
+    this.readOnly = false,
   });
 
   @override
@@ -401,6 +406,8 @@ class _BlockEditorState extends State<BlockEditor> {
 
   Widget _buildBlock(EditorBlock block, bool isFirst, double maxImageWidth) {
     block.controller.maxImageWidth = maxImageWidth;
+    // Drive the controller's read-only state so inline-image gestures honour it.
+    block.controller.readOnly = widget.readOnly;
     return Padding(
       key: ValueKey(block.id),
       padding: const EdgeInsets.symmetric(vertical: 1),
@@ -408,6 +415,9 @@ class _BlockEditorState extends State<BlockEditor> {
         child: TextField(
           controller: block.controller,
           focusNode: block.focusNode,
+          readOnly: widget.readOnly,
+          showCursor: !widget.readOnly,
+          enableInteractiveSelection: !widget.readOnly,
           maxLines: null,
           strutStyle: StrutStyle.disabled,
           textAlign: _align(block.alignment),

@@ -12,14 +12,10 @@ import '../config/editor_config.dart';
 
 class ComposeScreen extends StatefulWidget {
   final RichTextEditorConfig config;
-  final VoidCallback? onSave;
-  final VoidCallback? onLoad;
 
   const ComposeScreen({
     super.key,
     this.config = const RichTextEditorConfig(),
-    this.onSave,
-    this.onLoad,
   });
 
   @override
@@ -53,7 +49,6 @@ class _ComposeScreenState extends State<ComposeScreen> {
     final prefs = await SharedPreferences.getInstance();
     final htmlContent = HtmlConverter.toHtmlFromBlocks(_blockController.toBlockData());
     await prefs.setString(widget.config.storageKey, htmlContent);
-    widget.onSave?.call();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Data saved as HTML successfully')),
@@ -76,7 +71,6 @@ class _ComposeScreenState extends State<ComposeScreen> {
 
     try {
       _loadBlocksFromHtml(savedData);
-      widget.onLoad?.call();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Data loaded successfully')),

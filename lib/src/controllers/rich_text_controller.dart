@@ -129,6 +129,10 @@ class RichTextController extends TextEditingController {
   TextFormatting _activeFormatting = TextFormatting();
   String? selectedImageId;
 
+  /// When true the content is shown read-only: text can't be edited and inline
+  /// images can't be selected/resized. Used for previewing existing content.
+  bool readOnly = false;
+
   /// The [FocusNode] of the [TextField] this controller drives. Set by the
   /// owning block so taps on inline images (which the image's gesture detector
   /// absorbs before the field can see them) can still move keyboard focus to
@@ -859,6 +863,7 @@ class RichTextController extends TextEditingController {
   }
 
   void selectImage(String imageId) {
+    if (readOnly) return;
     selectedImageId = imageId;
     // Tapping an image is absorbed by its gesture detector, so the field never
     // sees the tap and the block's focus doesn't change. Pull focus here so the
